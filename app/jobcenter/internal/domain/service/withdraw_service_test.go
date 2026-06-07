@@ -1,3 +1,10 @@
+// Package service 提供领域服务的单元测试。
+//
+// 测试覆盖：
+//   - 正常流程：验证完整的提现处理流程
+//   - 错误处理：验证各种错误场景的处理
+//   - 恢复机制：验证从缓存恢复的逻辑
+//   - 幂等性：验证重复处理的防护
 package service
 
 import (
@@ -14,6 +21,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+// fakeWithdrawRepository 是 withdrawRepository 的 mock 实现，用于测试。
 type fakeWithdrawRepository struct {
 	findByIDFn    func(ctx context.Context, id int64) (*model.WithdrawRecord, error)
 	markSuccessFn func(ctx context.Context, id int64, txID string, dealTime int64) (bool, error)
@@ -27,6 +35,7 @@ func (f *fakeWithdrawRepository) MarkSuccess(ctx context.Context, id int64, txID
 	return f.markSuccessFn(ctx, id, txID, dealTime)
 }
 
+// fakeMarketFinder 是 marketCoinFinder 的 mock 实现，用于测试。
 type fakeMarketFinder struct {
 	findCoinByIDFn func(ctx context.Context, in *marketpb.MarketReq, opts ...grpc.CallOption) (*marketpb.Coin, error)
 }
@@ -35,6 +44,7 @@ func (f *fakeMarketFinder) FindCoinById(ctx context.Context, in *marketpb.Market
 	return f.findCoinByIDFn(ctx, in, opts...)
 }
 
+// fakeAssetFinder 是 assetWalletFinder 的 mock 实现，用于测试。
 type fakeAssetFinder struct {
 	findWalletFn func(ctx context.Context, in *assetpb.AssetReq, opts ...grpc.CallOption) (*assetpb.MemberWallet, error)
 }
@@ -43,6 +53,7 @@ func (f *fakeAssetFinder) FindWalletBySymbol(ctx context.Context, in *assetpb.As
 	return f.findWalletFn(ctx, in, opts...)
 }
 
+// fakeTxCache 是 txCache 的 mock 实现，用于测试。
 type fakeTxCache struct {
 	getFn           func(ctx context.Context, key string, value any) error
 	setWithExpireFn func(ctx context.Context, key string, value any, ttl time.Duration) error
@@ -56,6 +67,7 @@ func (f *fakeTxCache) SetWithExpireCtx(ctx context.Context, key string, value an
 	return f.setWithExpireFn(ctx, key, value, ttl)
 }
 
+// fakeBitcoinSender 是 btcx.WithdrawSender 的 mock 实现，用于测试。
 type fakeBitcoinSender struct {
 	sendFn func(ctx context.Context, fromAddress string, toAddress string, totalAmount float64, arrivedAmount float64) (string, error)
 }
@@ -64,6 +76,20 @@ func (f *fakeBitcoinSender) Send(ctx context.Context, fromAddress string, toAddr
 	return f.sendFn(ctx, fromAddress, toAddress, totalAmount, arrivedAmount)
 }
 
+// TestProcessAppliedMarksWithdrawSuccess 验证正常提现处理流程。
+//
+// 测试场景：
+//   - 提现记录处于 Processing 状态
+//   - 币种为 BTC（支持处理）
+//   - 用户钱包地址存在
+//   - Bitcoin Core 调用成功
+//   - 缓存和数据库更新成功
+//
+// 验证点：
+//   - Bitcoin Core 使用正确的发送方和接收方地址
+//   - 金额参数正确传递
+//   - 缓存键和值正确写入
+//   - 数据库状态正确更新
 func TestProcessAppliedMarksWithdrawSuccess(t *testing.T) {
 	t.Parallel()
 
@@ -163,6 +189,16 @@ func TestProcessAppliedMarksWithdrawSuccess(t *testing.T) {
 	}
 }
 
+// TestProcessAppliedReturnsRetryableWhenRecordNotCommittedYet 验证记录未提交时的重试行为。
+//
+// 测试场景：
+//   - Kafka 消息已到达，但数据库事务尚未提交
+//   - FindByID 返回 nil（记录不存在）
+//
+// 预期行为：
+//   - 返回可重试错误（非 NonRetryableError）
+//   - Kafka 消费者会重新投递消息
+//   - 等待数据库事务提交后重试成功
 func TestProcessAppliedReturnsRetryableWhenRecordNotCommittedYet(t *testing.T) {
 	t.Parallel()
 
@@ -200,6 +236,21 @@ func TestProcessAppliedReturnsRetryableWhenRecordNotCommittedYet(t *testing.T) {
 	}
 }
 
+// TestProcessAppliedFinalizesFromCacheBeforeResending 验证从缓存恢复的逻辑。
+//
+// 测试场景：
+//   - 提现记录处于 Processing 状态
+//   - 缓存中已存在 txid 和 dealTime
+//
+// 预期行为：
+//   - 从缓存读取 txid 和 dealTime
+//   - 直接更新数据库，不重新调用 Bitcoin Core
+//   - Market RPC 和 Asset RPC 不被调用
+//   - Bitcoin Sender 不被调用
+//
+// 这是恢复机制的核心测试，确保：
+//   - 交易不会重复广播（防止双重支付）
+//   - 已获得的 txid 能被正确复用
 func TestProcessAppliedFinalizesFromCacheBeforeResending(t *testing.T) {
 	t.Parallel()
 
@@ -270,6 +321,19 @@ func TestProcessAppliedFinalizesFromCacheBeforeResending(t *testing.T) {
 	}
 }
 
+// TestProcessAppliedRejectsUnsupportedCoinAsNonRetryable 验证不支持币种的处理。
+//
+// 测试场景：
+//   - 币种为 ETH（当前仅支持 BTC）
+//
+// 预期行为：
+//   - 返回 NonRetryableError
+//   - 不进行重试
+//   - 消息发送到死信队列
+//
+// 设计原因：
+//   - 不支持的币种是业务限制，不会因重试而改变
+//   - 避免无限重试阻塞消费者
 func TestProcessAppliedRejectsUnsupportedCoinAsNonRetryable(t *testing.T) {
 	t.Parallel()
 
@@ -317,6 +381,20 @@ func TestProcessAppliedRejectsUnsupportedCoinAsNonRetryable(t *testing.T) {
 	}
 }
 
+// TestProcessAppliedReturnsNilWhenCacheCheckpointFailsButDBFinalizes 验证缓存失败但数据库成功的场景。
+//
+// 测试场景：
+//   - 交易广播成功
+//   - Redis 缓存写入失败
+//   - MySQL 更新成功
+//
+// 预期行为：
+//   - 返回 nil（成功）
+//   - 缓存失败不影响最终结果
+//
+// 设计原因：
+//   - Redis 是辅助检查点，不是必需依赖
+//   - MySQL 更新成功才是最终状态
 func TestProcessAppliedReturnsNilWhenCacheCheckpointFailsButDBFinalizes(t *testing.T) {
 	t.Parallel()
 
@@ -370,6 +448,22 @@ func TestProcessAppliedReturnsNilWhenCacheCheckpointFailsButDBFinalizes(t *testi
 	}
 }
 
+// TestProcessAppliedReturnsNonRetryableWhenCheckpointAndDBBothFailAfterBroadcast 验证关键失败场景。
+//
+// 测试场景：
+//   - 交易已广播成功（txid 已获得）
+//   - Redis 缓存写入失败
+//   - MySQL 更新失败
+//
+// 预期行为：
+//   - 返回 NonRetryableError
+//   - 不进行重试
+//   - 需要人工介入
+//
+// 设计原因：
+//   - 交易已广播但无法记录状态是严重问题
+//   - 重试可能导致重复广播（双重支付风险）
+//   - 发送到死信队列供人工处理
 func TestProcessAppliedReturnsNonRetryableWhenCheckpointAndDBBothFailAfterBroadcast(t *testing.T) {
 	t.Parallel()
 
@@ -427,6 +521,19 @@ func TestProcessAppliedReturnsNonRetryableWhenCheckpointAndDBBothFailAfterBroadc
 	}
 }
 
+// TestProcessAppliedReturnsRetryableWhenCheckpointReadFails 验证缓存读取失败的场景。
+//
+// 测试场景：
+//   - Redis 缓存读取失败（非 redis.Nil）
+//   - 无法判断是否存在恢复检查点
+//
+// 预期行为：
+//   - 返回可重试错误
+//   - 不继续处理（安全策略）
+//
+// 设计原因：
+//   - 缓存读取失败可能导致漏掉恢复检查点
+//   - 重试后缓存可能恢复正常
 func TestProcessAppliedReturnsRetryableWhenCheckpointReadFails(t *testing.T) {
 	t.Parallel()
 

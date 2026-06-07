@@ -10,6 +10,7 @@ import (
 )
 
 // FindOrderHistoryLogic 处理查询历史订单的 RPC 请求。
+// 返回用户已完成或已取消的历史订单列表。
 type FindOrderHistoryLogic struct {
 	exchangeLogicBase
 }
@@ -20,7 +21,23 @@ func NewFindOrderHistoryLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 // FindOrderHistory 执行查询历史订单的业务逻辑。
-// 返回用户的历史订单列表（已完成/已取消状态）。
+//
+// 处理流程：
+// 1. 调用 OrderService.FindOrderHistory 查询数据库
+// 2. 将订单实体列表转换为 RPC 响应格式
+// 3. 返回分页结果
+//
+// 查询条件：
+// - 用户 ID（memberId）
+// - 交易对符号（symbol）
+// - 分页参数（page, pageSize）
+//
+// 返回的订单状态：
+// - COMPLETED: 已完成（订单全部成交）
+// - CANCELED: 已取消（用户主动取消）
+// - OVERTIMED: 已超时（订单超过有效期被系统取消）
+//
+// 注意：本方法不调用 ucenter-rpc 或 market-rpc，直接查询本地数据库。
 func (l *FindOrderHistoryLogic) FindOrderHistory(req *orderpb.OrderReq) (*orderpb.OrderRes, error) {
 	// 调用服务层查询历史订单
 	list, total, err := l.svcCtx.OrderService.FindOrderHistory(l.ctx, req.Symbol, req.Page, req.PageSize, req.UserId)

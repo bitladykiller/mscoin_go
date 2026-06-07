@@ -13,11 +13,26 @@ import (
 )
 
 // HistoryHandler 返回处理查询历史订单请求的 HTTP 处理器函数。
+//
 // 处理流程：
 // 1. 解析请求参数到 ExchangeReq 结构体
-// 2. 获取客户端 IP 地址
+// 2. 获取客户端 IP 地址（用于风控和审计）
 // 3. 调用 HistoryLogic 执行业务逻辑
-// 4. 返回处理结果
+// 4. 返回处理结果（分页的订单列表）
+//
+// 与 exchange-rpc 的调用关系：
+// - 该处理器通过 ServiceContext.OrderClient 调用 exchange-rpc 的 FindOrderHistory 方法
+// - 返回用户已完成或已取消的历史订单
+//
+// 查询条件：
+// - 用户 ID（从 JWT 令牌中提取）
+// - 交易对符号（可选，为空时查询所有交易对）
+// - 分页参数
+//
+// 返回的订单状态：
+// - COMPLETED: 已完成（全部成交）
+// - CANCELED: 已取消
+// - OVERTIMED: 已超时
 func HistoryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.ExchangeReq

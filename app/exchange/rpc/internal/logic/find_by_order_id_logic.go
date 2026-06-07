@@ -8,6 +8,7 @@ import (
 )
 
 // FindByOrderIDLogic 处理根据订单 ID 查询订单的 RPC 请求。
+// 返回订单的完整原始信息，包含数值型的状态、方向、类型字段。
 type FindByOrderIDLogic struct {
 	exchangeLogicBase
 }
@@ -18,7 +19,24 @@ func NewFindByOrderIDLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Fin
 }
 
 // FindByOrderID 执行根据订单 ID 查询订单的业务逻辑。
-// 返回订单的完整信息（原始格式，包含数值型的状态、方向、类型）。
+//
+// 处理流程：
+// 1. 调用 OrderService.FindByOrderID 查询数据库
+// 2. 将订单实体转换为 ExchangeOrderOrigin 格式
+// 3. 返回订单原始信息
+//
+// 返回数据说明：
+// - ExchangeOrderOrigin 包含数值型的状态、方向、类型字段
+// - 状态：0-交易中, 1-已完成, 2-已取消, 3-已超时, 4-初始化
+// - 方向：0-买入, 1-卖出
+// - 类型：0-市价, 1-限价
+//
+// 与其他查询方法的区别：
+// - FindOrderHistory/FindOrderCurrent 返回 ExchangeOrder，状态/方向/类型为字符串标签
+// - FindByOrderID 返回 ExchangeOrderOrigin，状态/方向/类型为数值代码
+// - 数值代码便于内部处理，字符串标签便于前端展示
+//
+// 注意：本方法不调用 ucenter-rpc 或 market-rpc，直接查询本地数据库。
 func (l *FindByOrderIDLogic) FindByOrderID(req *orderpb.OrderReq) (*orderpb.ExchangeOrderOrigin, error) {
 	// 调用服务层查询订单
 	order, err := l.svcCtx.OrderService.FindByOrderID(l.ctx, req.OrderId)

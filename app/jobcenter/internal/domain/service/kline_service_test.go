@@ -1,3 +1,8 @@
+// Package service 提供 K 线同步服务的单元测试。
+//
+// 测试覆盖：
+//   - 正常流程：验证 K 线数据的获取、存储、缓存和发布
+//   - 错误聚合：验证多个交易对同步失败时的错误聚合
 package service
 
 import (
@@ -13,6 +18,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+// fakeVisibleExchangeCoinFinder 是 visibleExchangeCoinFinder 的 mock 实现。
 type fakeVisibleExchangeCoinFinder struct {
 	findFn func(ctx context.Context, in *marketpb.MarketReq, opts ...grpc.CallOption) (*marketpb.ExchangeCoinRes, error)
 }
@@ -21,6 +27,7 @@ func (f *fakeVisibleExchangeCoinFinder) FindExchangeCoinVisible(ctx context.Cont
 	return f.findFn(ctx, in, opts...)
 }
 
+// fakeKlineWriter 是 klineWriter 的 mock 实现。
 type fakeKlineWriter struct {
 	replaceBatchFn func(ctx context.Context, symbol string, period string, list []*model.Kline) error
 }
@@ -29,6 +36,7 @@ func (f *fakeKlineWriter) ReplaceBatch(ctx context.Context, symbol string, perio
 	return f.replaceBatchFn(ctx, symbol, period, list)
 }
 
+// fakePriceCache 是 priceCache 的 mock 实现。
 type fakePriceCache struct {
 	setFn func(ctx context.Context, key string, value any) error
 }
@@ -37,6 +45,7 @@ func (f *fakePriceCache) SetCtx(ctx context.Context, key string, value any) erro
 	return f.setFn(ctx, key, value)
 }
 
+// fakeOKXClient 是 okxx.Client 的 mock 实现。
 type fakeOKXClient struct {
 	fetchExchangeRateFn func(ctx context.Context) (*okxx.ExchangeRate, error)
 	fetchCandlesFn      func(ctx context.Context, instID string, bar string) ([]*okxx.Candle, error)
@@ -50,6 +59,7 @@ func (f *fakeOKXClient) FetchCandles(ctx context.Context, instID string, bar str
 	return f.fetchCandlesFn(ctx, instID, bar)
 }
 
+// fakeKlineProducer 是 kafka.Producer 的 mock 实现。
 type fakeKlineProducer struct {
 	pushFn func(ctx context.Context, key string, value string) error
 }
@@ -62,6 +72,18 @@ func (f *fakeKlineProducer) Close() error {
 	return nil
 }
 
+// TestKlineSyncServiceSyncPeriodStoresAndPublishesLatest1m 验证 1m 周期 K 线的完整同步流程。
+//
+// 测试场景：
+//   - 配置一个交易对（BTC/USDT）
+//   - OKX API 返回 K 线数据
+//   - 1m 周期，启用发布到 Kafka
+//
+// 验证点：
+//   - OKX API 使用正确的参数（instID=BTC-USDT, bar=1m）
+//   - MongoDB ReplaceBatch 被调用
+//   - 最新价格缓存到 Redis（key=BTC::USDT::RATE）
+//   - 最新 K 线发布到 Kafka（key=BTC/USDT）
 func TestKlineSyncServiceSyncPeriodStoresAndPublishesLatest1m(t *testing.T) {
 	t.Parallel()
 
@@ -147,6 +169,14 @@ func TestKlineSyncServiceSyncPeriodStoresAndPublishesLatest1m(t *testing.T) {
 	}
 }
 
+// TestKlineSyncServiceSyncPeriodAggregatesSymbolErrors 验证错误聚合行为。
+//
+// 测试场景：
+//   - OKX API 调用失败
+//
+// 预期行为：
+//   - 返回错误，包含具体的交易对和周期信息
+//   - 错误信息便于问题定位
 func TestKlineSyncServiceSyncPeriodAggregatesSymbolErrors(t *testing.T) {
 	t.Parallel()
 

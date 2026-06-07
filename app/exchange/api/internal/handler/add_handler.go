@@ -15,11 +15,22 @@ import (
 )
 
 // AddHandler 返回处理新增订单请求的 HTTP 处理器函数。
+//
 // 处理流程：
 // 1. 解析请求参数到 ExchangeReq 结构体
-// 2. 获取客户端 IP 地址
+// 2. 获取客户端 IP 地址（用于风控和审计）
 // 3. 调用 AddLogic 执行业务逻辑
-// 4. 返回处理结果
+// 4. 返回处理结果（订单 ID）
+//
+// 与 exchange-rpc 的调用关系：
+// - 该处理器通过 ServiceContext.OrderClient 调用 exchange-rpc 的 Add 方法
+// - exchange-rpc 会进一步调用 ucenter-rpc 和 market-rpc 验证用户状态和交易对信息
+//
+// 业务规则验证（在 exchange-rpc 中执行）：
+// - 用户交易状态是否正常（通过 ucenter-rpc 查询会员信息）
+// - 交易对是否可交易（通过 market-rpc 查询交易对配置）
+// - 用户钱包是否被锁定（通过 ucenter-rpc 查询钱包信息）
+// - 当前委托订单数量是否超限
 func AddHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.ExchangeReq

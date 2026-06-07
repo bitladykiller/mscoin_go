@@ -1,0 +1,20 @@
+# Root build outputs created during local verification.
+/api
+/rpc
+/jobcenter
+
+# Common Go test/build artifacts.
+*.test
+*.out
+.coverprofile
+
+# Local editor and OS noise.
+.DS_Store
+.idea/
+.vscode/
+
+# Docker compose state and generated data directories.
+/deploy/mysql/data/
+/deploy/mongo/data/
+/deploy/redis/data/
+/deploy/bitcoin/data/

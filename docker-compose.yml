@@ -1,0 +1,335 @@
+name: mscoin-go
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: root
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      - --explicit_defaults_for_timestamp=true
+      - --lower_case_table_names=1
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./deploy/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - mscoin-network
+
+  redis:
+    image: redis:7.2
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - mscoin-network
+
+  etcd:
+    image: bitnami/etcd:3.5
+    restart: unless-stopped
+    environment:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+    ports:
+      - "2379:2379"
+    volumes:
+      - etcd-data:/bitnami/etcd
+    healthcheck:
+      test: ["CMD", "etcdctl", "--endpoints=http://127.0.0.1:2379", "endpoint", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - mscoin-network
+
+  mongo:
+    image: mongo:7.0
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root123456
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --username root --password root123456 --authenticationDatabase admin --eval 'db.runCommand({ ping: 1 }).ok' | grep 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - mscoin-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    networks:
+      - mscoin-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_started
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-topics --bootstrap-server 127.0.0.1:9092 --list >/dev/null 2>&1",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+    networks:
+      - mscoin-network
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop:4.0.2
+    restart: unless-stopped
+    environment:
+      KAFKA_BROKERCONNECT: kafka:9092
+      JVM_OPTS: -Xms32M -Xmx128M
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "19000:9000"
+    networks:
+      - mscoin-network
+
+  bitcoin:
+    image: bitcoin/bitcoin:27.0
+    restart: unless-stopped
+    command:
+      - -testnet=1
+      - -server=1
+      - -rpcbind=0.0.0.0
+      - -rpcallowip=0.0.0.0/0
+      - -rpcport=18332
+      - -rpcuser=bitcoin
+      - -rpcpassword=123456
+      - -txindex=1
+      - -fallbackfee=0.0002
+      - -printtoconsole
+    ports:
+      - "18332:18332"
+    volumes:
+      - bitcoin-data:/home/bitcoin/.bitcoin
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bitcoin-cli -testnet -rpcconnect=127.0.0.1 -rpcport=18332 -rpcuser=bitcoin -rpcpassword=123456 getblockchaininfo >/dev/null 2>&1",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 30
+    networks:
+      - mscoin-network
+
+  bitcoin-wallet-init:
+    image: bitcoin/bitcoin:27.0
+    restart: "no"
+    depends_on:
+      bitcoin:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/scripts/init-wallet.sh"]
+    volumes:
+      - ./deploy/bitcoin/init-wallet.sh:/scripts/init-wallet.sh:ro
+    networks:
+      - mscoin-network
+
+  market-rpc:
+    build:
+      context: .
+      dockerfile: app/market/rpc/Dockerfile
+    image: mscoin-go/market-rpc:local
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      etcd:
+        condition: service_healthy
+    ports:
+      - "8082:8082"
+    networks:
+      - mscoin-network
+
+  market-api:
+    build:
+      context: .
+      dockerfile: app/market/api/Dockerfile
+    image: mscoin-go/market-api:local
+    restart: unless-stopped
+    depends_on:
+      market-rpc:
+        condition: service_started
+    ports:
+      - "8889:8889"
+    networks:
+      - mscoin-network
+
+  ucenter-rpc:
+    build:
+      context: .
+      dockerfile: app/ucenter/rpc/Dockerfile
+    image: mscoin-go/ucenter-rpc:local
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      etcd:
+        condition: service_healthy
+      market-rpc:
+        condition: service_started
+      bitcoin-wallet-init:
+        condition: service_completed_successfully
+    ports:
+      - "8081:8081"
+    networks:
+      - mscoin-network
+
+  ucenter-api:
+    build:
+      context: .
+      dockerfile: app/ucenter/api/Dockerfile
+    image: mscoin-go/ucenter-api:local
+    restart: unless-stopped
+    depends_on:
+      ucenter-rpc:
+        condition: service_started
+      market-rpc:
+        condition: service_started
+    ports:
+      - "8888:8888"
+    networks:
+      - mscoin-network
+
+  exchange-rpc:
+    build:
+      context: .
+      dockerfile: app/exchange/rpc/Dockerfile
+    image: mscoin-go/exchange-rpc:local
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      etcd:
+        condition: service_healthy
+      market-rpc:
+        condition: service_started
+      ucenter-rpc:
+        condition: service_started
+    ports:
+      - "8083:8083"
+    networks:
+      - mscoin-network
+
+  exchange-api:
+    build:
+      context: .
+      dockerfile: app/exchange/api/Dockerfile
+    image: mscoin-go/exchange-api:local
+    restart: unless-stopped
+    depends_on:
+      exchange-rpc:
+        condition: service_started
+    ports:
+      - "8890:8890"
+    networks:
+      - mscoin-network
+
+  jobcenter:
+    build:
+      context: .
+      dockerfile: app/jobcenter/Dockerfile
+    image: mscoin-go/jobcenter:local
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      etcd:
+        condition: service_healthy
+      market-rpc:
+        condition: service_started
+      ucenter-rpc:
+        condition: service_started
+      bitcoin-wallet-init:
+        condition: service_completed_successfully
+    networks:
+      - mscoin-network
+
+networks:
+  mscoin-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  redis-data:
+  etcd-data:
+  mongo-data:
+  zookeeper-data:
+  zookeeper-log:
+  bitcoin-data:

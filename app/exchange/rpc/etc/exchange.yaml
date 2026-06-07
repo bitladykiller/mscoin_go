@@ -1,0 +1,27 @@
+Name: exchange.rpc
+ListenOn: 0.0.0.0:8083
+Etcd:
+  Hosts:
+    - etcd:2379
+  Key: exchange.rpc
+Mysql:
+  DataSource: root:root@tcp(mysql:3306)/exchange?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+  MaxOpenConns: 100
+  MaxIdleConns: 20
+UcenterRPC:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: ucenter.rpc
+  NonBlock: true
+MarketRPC:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: market.rpc
+  NonBlock: true
+Redis:
+  Addrs:
+    - redis:6379
+  Password: ""
+  DB: 0

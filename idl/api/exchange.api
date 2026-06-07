@@ -1,0 +1,74 @@
+type ExchangeReq {
+	Ip          string  `json:"ip,optional" form:"ip,optional"`
+	Symbol      string  `json:"symbol,optional" form:"symbol,optional"`
+	PageNo      int64   `json:"pageNo,optional" form:"pageNo,optional"`
+	PageSize    int64   `json:"pageSize,optional" form:"pageSize,optional"`
+	Price       float64 `json:"price,optional" form:"price,optional"`
+	Amount      float64 `json:"amount,optional" form:"amount,optional"`
+	Direction   string  `json:"direction,optional" form:"direction,optional"`
+	Type        string  `json:"type,optional" form:"type,optional"`
+	UseDiscount float64 `json:"useDiscount,optional" form:"useDiscount,optional"`
+}
+
+type ExchangeOrder {
+	Id            int64   `json:"id"`
+	OrderId       string  `json:"orderId"`
+	Amount        float64 `json:"amount"`
+	BaseSymbol    string  `json:"baseSymbol"`
+	CanceledTime  int64   `json:"canceledTime"`
+	CoinSymbol    string  `json:"coinSymbol"`
+	CompletedTime int64   `json:"completedTime"`
+	Direction     int     `json:"direction"`
+	MemberId      int64   `json:"memberId"`
+	Price         string  `json:"price"`
+	Status        string  `json:"status"`
+	Symbol        string  `json:"symbol"`
+	Time          int64   `json:"time"`
+	TradedAmount  float64 `json:"tradedAmount"`
+	Turnover      float64 `json:"turnover"`
+	Type          string  `json:"type"`
+	UseDiscount   string  `json:"useDiscount"`
+}
+
+type OrderPageData {
+	Content       []ExchangeOrder `json:"content"`
+	TotalElements int64           `json:"totalElements"`
+	Number        int64           `json:"number"`
+	TotalPages    int64           `json:"totalPages"`
+	HasNext       bool            `json:"hasNext"`
+	IsLast        bool            `json:"isLast"`
+}
+
+type OrderHistoryRes {
+	Code    int           `json:"code"`
+	Message string        `json:"message"`
+	Data    OrderPageData `json:"data"`
+}
+
+type OrderCurrentRes {
+	Code    int           `json:"code"`
+	Message string        `json:"message"`
+	Data    OrderPageData `json:"data"`
+}
+
+type OrderAddRes {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    string `json:"data"`
+}
+
+@server (
+	prefix:     /exchange
+	middleware: Auth
+)
+service exchange {
+	@handler History
+	post /order/history (ExchangeReq) returns (OrderHistoryRes)
+
+	@handler Current
+	post /order/current (ExchangeReq) returns (OrderCurrentRes)
+
+	@handler Add
+	post /order/add (ExchangeReq) returns (OrderAddRes)
+}
+

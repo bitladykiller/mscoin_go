@@ -1,0 +1,21 @@
+# Build outputs generated from local verification should never be copied into
+# image build contexts. Excluding them keeps the context small and avoids stale
+# binaries shadowing newly built ones inside Docker.
+api
+jobcenter
+rpc
+
+# VCS and editor noise do not belong in runtime images.
+.git
+.gitignore
+.DS_Store
+
+# Local dependency caches make image contexts large and non-reproducible.
+vendor
+
+# Compose-managed state should stay outside the Docker build context.
+deploy/mysql/data
+deploy/mongo/data
+deploy/redis/data
+deploy/bitcoin/data
+

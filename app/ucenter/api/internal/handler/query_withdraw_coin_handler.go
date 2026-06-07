@@ -1,0 +1,18 @@
+package handler
+
+import (
+	"net/http"
+
+	"mscoin_go/app/ucenter/api/internal/logic"
+	"mscoin_go/app/ucenter/api/internal/svc"
+	"mscoin_go/pkg/result"
+
+	"github.com/zeromicro/go-zero/rest/httpx"
+)
+
+func QueryWithdrawCoinHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		resp, err := logic.NewQueryWithdrawCoinLogic(r.Context(), svcCtx).QueryWithdrawCoin()
+		httpx.OkJsonCtx(r.Context(), w, result.New().Deal(resp, err))
+	}
+}

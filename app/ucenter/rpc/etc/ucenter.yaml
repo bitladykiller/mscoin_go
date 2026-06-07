@@ -1,0 +1,39 @@
+Name: ucenter.rpc
+ListenOn: 0.0.0.0:8081
+Etcd:
+  Hosts:
+    - etcd:2379
+  Key: ucenter.rpc
+Mysql:
+  DataSource: root:root@tcp(mysql:3306)/ucenter?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+  MaxOpenConns: 100
+  MaxIdleConns: 20
+Redis:
+  Addrs:
+    - redis:6379
+  Password: ""
+  DB: 0
+Kafka:
+  Brokers:
+    - kafka:9092
+  Topic: withdraw
+  Sync: true
+  AllowAutoTopicCreation: true
+JWT:
+  AccessSecret: "!@#$mscoin"
+  AccessExpire: 604800
+Captcha:
+  Vid: ""
+  Key: ""
+MarketRPC:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: market.rpc
+  NonBlock: true
+Bitcoin:
+  URL: http://bitcoin:18332/wallet/mscoin
+  Username: bitcoin
+  Password: "123456"
+  AddressType: legacy
+  TimeoutMs: 20000

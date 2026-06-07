@@ -1,0 +1,20 @@
+Name: market.rpc
+ListenOn: 0.0.0.0:8082
+Etcd:
+  Hosts:
+    - etcd:2379
+  Key: market.rpc
+Mysql:
+  DataSource: root:root@tcp(mysql:3306)/market?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+  MaxOpenConns: 100
+  MaxIdleConns: 20
+Mongo:
+  URI: mongodb://mongo:27017
+  Username: root
+  Password: root123456
+  Database: mscoin
+Redis:
+  Addrs:
+    - redis:6379
+  Password: ""
+  DB: 0

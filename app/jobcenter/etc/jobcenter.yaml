@@ -1,0 +1,127 @@
+Name: jobcenter
+Mode: dev
+Log:
+  ServiceName: jobcenter
+  Mode: console
+Kafka:
+  Brokers:
+    - kafka:9092
+  Topic: withdraw
+  GroupID: jobcenter-withdraw
+  RetryBackoffMs: 2000
+  MaxWaitMs: 3000
+  DeadLetterTopic: withdraw.dlq
+  AllowAutoTopicCreate: true
+UcenterMysql:
+  DataSource: root:root@tcp(mysql:3306)/ucenter?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+  MaxOpenConns: 50
+  MaxIdleConns: 10
+Redis:
+  Addrs:
+    - redis:6379
+  Password: ""
+  DB: 0
+Mongo:
+  URI: mongodb://mongo:27017
+  Username: root
+  Password: root123456
+  Database: mscoin
+MarketRPC:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: market.rpc
+  NonBlock: true
+UcenterRPC:
+  Etcd:
+    Hosts:
+      - etcd:2379
+    Key: ucenter.rpc
+  NonBlock: true
+OKX:
+  APIKey: ""
+  SecretKey: ""
+  Passphrase: ""
+  Host: "https://www.okx.com"
+  Proxy: ""
+  TimeoutMs: 20000
+Tasks:
+  RateSync:
+    Enabled: true
+    RunOnStart: true
+    IntervalSeconds: 300
+  Klines:
+    - Period: "1m"
+      Enabled: true
+      RunOnStart: true
+      IntervalSeconds: 60
+      PublishLatest: true
+      PublishTopic: "kline_1m"
+    - Period: "3m"
+      Enabled: true
+      RunOnStart: true
+      IntervalSeconds: 180
+      PublishLatest: false
+      PublishTopic: ""
+    - Period: "5m"
+      Enabled: true
+      RunOnStart: true
+      IntervalSeconds: 300
+      PublishLatest: false
+      PublishTopic: ""
+    - Period: "15m"
+      Enabled: true
+      RunOnStart: true
+      IntervalSeconds: 900
+      PublishLatest: false
+      PublishTopic: ""
+    - Period: "30m"
+      Enabled: true
+      RunOnStart: true
+      IntervalSeconds: 1800
+      PublishLatest: false
+      PublishTopic: ""
+    - Period: "1H"
+      Enabled: true
+      RunOnStart: true
+      IntervalSeconds: 3600
+      PublishLatest: false
+      PublishTopic: ""
+    - Period: "2H"
+      Enabled: true
+      RunOnStart: true
+      IntervalSeconds: 7200
+      PublishLatest: false
+      PublishTopic: ""
+    - Period: "4H"
+      Enabled: true
+      RunOnStart: true
+      IntervalSeconds: 14400
+      PublishLatest: false
+      PublishTopic: ""
+    - Period: "1D"
+      Enabled: true
+      RunOnStart: true
+      IntervalSeconds: 86400
+      PublishLatest: false
+      PublishTopic: ""
+    - Period: "1W"
+      Enabled: true
+      RunOnStart: true
+      IntervalSeconds: 604800
+      PublishLatest: false
+      PublishTopic: ""
+    - Period: "1M"
+      Enabled: true
+      RunOnStart: true
+      IntervalSeconds: 2592000
+      PublishLatest: false
+      PublishTopic: ""
+Bitcoin:
+  URL: http://bitcoin:18332/wallet/mscoin
+  Username: bitcoin
+  Password: "123456"
+  MinConfirmations: 0
+  MaxConfirmations: 999999
+  AddressType: legacy
+  TimeoutMs: 20000

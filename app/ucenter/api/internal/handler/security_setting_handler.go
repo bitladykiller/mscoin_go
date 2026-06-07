@@ -1,0 +1,20 @@
+package handler
+
+import (
+	"net/http"
+
+	"mscoin_go/app/ucenter/api/internal/logic"
+	"mscoin_go/app/ucenter/api/internal/svc"
+	"mscoin_go/app/ucenter/api/internal/types"
+	"mscoin_go/pkg/result"
+
+	"github.com/zeromicro/go-zero/rest/httpx"
+)
+
+func SecuritySettingHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req types.ApproveReq
+		resp, err := logic.NewSecuritySettingLogic(r.Context(), svcCtx).FindSecuritySetting(&req)
+		httpx.OkJsonCtx(r.Context(), w, result.New().Deal(resp, err))
+	}
+}

@@ -1,0 +1,319 @@
+type CaptchaReq {
+	Server string `json:"server"`
+	Token  string `json:"token"`
+}
+
+type Request {
+	Username     string     `json:"username,optional"`
+	Password     string     `json:"password,optional"`
+	Captcha      CaptchaReq `json:"captcha,optional"`
+	Phone        string     `json:"phone,optional"`
+	Promotion    string     `json:"promotion,optional"`
+	Code         string     `json:"code,optional"`
+	Country      string     `json:"country,optional"`
+	SuperPartner string     `json:"superPartner,optional"`
+	Ip           string     `json:"ip,optional"`
+}
+
+type Response {
+	Message string `json:"message"`
+}
+
+type CodeRequest {
+	Phone   string `json:"phone,optional"`
+	Country string `json:"country,optional"`
+}
+
+type CodeResponse {}
+
+type LoginReq {
+	Username string     `json:"username"`
+	Password string     `json:"password"`
+	Captcha  CaptchaReq `json:"captcha,optional"`
+	Ip       string     `json:"ip,optional"`
+}
+
+type LoginRes {
+	Username      string `json:"username"`
+	Token         string `json:"token"`
+	MemberLevel   string `json:"memberLevel"`
+	RealName      string `json:"realName"`
+	Country       string `json:"country"`
+	Avatar        string `json:"avatar"`
+	PromotionCode string `json:"promotionCode"`
+	Id            int64  `json:"id"`
+	LoginCount    int    `json:"loginCount"`
+	SuperPartner  string `json:"superPartner"`
+	MemberRate    int    `json:"memberRate"`
+}
+
+type AssetReq {
+	CoinName  string `json:"coinName,optional" path:"coinName,optional"`
+	Ip        string `json:"ip,optional"`
+	Unit      string `json:"unit,optional" form:"unit,optional"`
+	PageNo    int    `json:"pageNo,optional" form:"pageNo,optional"`
+	PageSize  int    `json:"pageSize,optional" form:"pageSize,optional"`
+	StartTime string `json:"startTime,optional" form:"startTime,optional"`
+	EndTime   string `json:"endTime,optional" form:"endTime,optional"`
+	Symbol    string `json:"symbol,optional" form:"symbol,optional"`
+	Type      string `json:"type,optional" form:"type,optional"`
+}
+
+type Coin {
+	Id                int     `json:"id"`
+	Name              string  `json:"name"`
+	CanAutoWithdraw   int     `json:"canAutoWithdraw"`
+	CanRecharge       int     `json:"canRecharge"`
+	CanTransfer       int     `json:"canTransfer"`
+	CanWithdraw       int     `json:"canWithdraw"`
+	CnyRate           float64 `json:"cnyRate"`
+	EnableRpc         int     `json:"enableRpc"`
+	IsPlatformCoin    int     `json:"isPlatformCoin"`
+	MaxTxFee          float64 `json:"maxTxFee"`
+	MaxWithdrawAmount float64 `json:"maxWithdrawAmount"`
+	MinTxFee          float64 `json:"minTxFee"`
+	MinWithdrawAmount float64 `json:"minWithdrawAmount"`
+	NameCn            string  `json:"nameCn"`
+	Sort              int     `json:"sort"`
+	Status            int     `json:"status"`
+	Unit              string  `json:"unit"`
+	UsdRate           float64 `json:"usdRate"`
+	WithdrawThreshold float64 `json:"withdrawThreshold"`
+	HasLegal          int     `json:"hasLegal"`
+	ColdWalletAddress string  `json:"coldWalletAddress"`
+	MinerFee          float64 `json:"minerFee"`
+	WithdrawScale     int     `json:"withdrawScale"`
+	AccountType       int     `json:"accountType"`
+	DepositAddress    string  `json:"depositAddress"`
+	Infolink          string  `json:"infolink"`
+	Information       string  `json:"information"`
+	MinRechargeAmount float64 `json:"minRechargeAmount"`
+}
+
+type MemberWallet {
+	Id             int64   `json:"id"`
+	Address        string  `json:"address"`
+	Balance        float64 `json:"balance"`
+	FrozenBalance  float64 `json:"frozenBalance"`
+	ReleaseBalance float64 `json:"releaseBalance"`
+	IsLock         int     `json:"isLock"`
+	MemberId       int64   `json:"memberId"`
+	Version        int     `json:"version"`
+	Coin           Coin    `json:"coin"`
+	ToReleased     float64 `json:"toReleased"`
+}
+
+type MemberTransaction {
+	Id          int64   `json:"id"`
+	Address     string  `json:"address"`
+	Amount      float64 `json:"amount"`
+	CreateTime  string  `json:"createTime"`
+	Fee         float64 `json:"fee"`
+	Flag        int     `json:"flag"`
+	MemberId    int64   `json:"memberId"`
+	Symbol      string  `json:"symbol"`
+	Type        string  `json:"type"`
+	DiscountFee string  `json:"discountFee"`
+	RealFee     string  `json:"realFee"`
+}
+
+type ApproveReq {}
+
+type MemberSecurity {
+	Username             string `json:"username"`
+	Id                   int64  `json:"id"`
+	CreateTime           string `json:"createTime"`
+	RealVerified         string `json:"realVerified"`
+	EmailVerified        string `json:"emailVerified"`
+	PhoneVerified        string `json:"phoneVerified"`
+	LoginVerified        string `json:"loginVerified"`
+	FundsVerified        string `json:"fundsVerified"`
+	RealAuditing         string `json:"realAuditing"`
+	MobilePhone          string `json:"mobilePhone"`
+	Email                string `json:"email"`
+	RealName             string `json:"realName"`
+	RealNameRejectReason string `json:"realNameRejectReason"`
+	IdCard               string `json:"idCard"`
+	Avatar               string `json:"avatar"`
+	AccountVerified      string `json:"accountVerified"`
+}
+
+type WithdrawReq {
+	Unit       string  `json:"unit,optional" form:"unit,optional"`
+	Address    string  `json:"address,optional" form:"address,optional"`
+	Amount     float64 `json:"amount,optional" form:"amount,optional"`
+	Fee        float64 `json:"fee,optional" form:"fee,optional"`
+	JyPassword string  `json:"jyPassword,optional" form:"jyPassword,optional"`
+	Code       string  `json:"code,optional" form:"code,optional"`
+	Page       int     `json:"page,optional" form:"page,optional"`
+	PageSize   int     `json:"pageSize,optional" form:"pageSize,optional"`
+}
+
+type AddressSimple {
+	Remark  string `json:"remark"`
+	Address string `json:"address"`
+}
+
+type WithdrawWalletInfo {
+	Unit            string          `json:"unit"`
+	Threshold       float64         `json:"threshold"`
+	MinAmount       float64         `json:"minAmount"`
+	MaxAmount       float64         `json:"maxAmount"`
+	MinTxFee        float64         `json:"minTxFee"`
+	MaxTxFee        float64         `json:"maxTxFee"`
+	NameCn          string          `json:"nameCn"`
+	Name            string          `json:"name"`
+	Balance         float64         `json:"balance"`
+	CanAutoWithdraw string          `json:"canAutoWithdraw"`
+	WithdrawScale   int             `json:"withdrawScale"`
+	AccountType     int             `json:"accountType"`
+	Addresses       []AddressSimple `json:"addresses"`
+}
+
+type WithdrawRecord {
+	Id                int64   `json:"id"`
+	MemberId          int64   `json:"memberId"`
+	Coin              Coin    `json:"coin"`
+	TotalAmount       float64 `json:"totalAmount"`
+	Fee               float64 `json:"fee"`
+	ArrivedAmount     float64 `json:"arrivedAmount"`
+	Address           string  `json:"address"`
+	Remark            string  `json:"remark"`
+	TransactionNumber string  `json:"transactionNumber"`
+	CanAutoWithdraw   int     `json:"canAutoWithdraw"`
+	IsAuto            int     `json:"isAuto"`
+	Status            int     `json:"status"`
+	CreateTime        string  `json:"createTime"`
+	DealTime          string  `json:"dealTime"`
+}
+
+type BoolResult {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    bool   `json:"data"`
+}
+
+type ResponseResult {
+	Code    int      `json:"code"`
+	Message string   `json:"message"`
+	Data    Response `json:"data"`
+}
+
+type CodeResponseResult {
+	Code    int          `json:"code"`
+	Message string       `json:"message"`
+	Data    CodeResponse `json:"data"`
+}
+
+type LoginResult {
+	Code    int      `json:"code"`
+	Message string   `json:"message"`
+	Data    LoginRes `json:"data"`
+}
+
+type MemberWalletResult {
+	Code    int          `json:"code"`
+	Message string       `json:"message"`
+	Data    MemberWallet `json:"data"`
+}
+
+type MemberWalletListResult {
+	Code    int            `json:"code"`
+	Message string         `json:"message"`
+	Data    []MemberWallet `json:"data"`
+}
+
+type StringResult {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    string `json:"data"`
+}
+
+type MemberTransactionPageData {
+	Content       []MemberTransaction `json:"content"`
+	TotalElements int64               `json:"totalElements"`
+	Number        int64               `json:"number"`
+	TotalPages    int64               `json:"totalPages"`
+	HasNext       bool                `json:"hasNext"`
+	IsLast        bool                `json:"isLast"`
+}
+
+type MemberTransactionPageResult {
+	Code    int                       `json:"code"`
+	Message string                    `json:"message"`
+	Data    MemberTransactionPageData `json:"data"`
+}
+
+type MemberSecurityResult {
+	Code    int            `json:"code"`
+	Message string         `json:"message"`
+	Data    MemberSecurity `json:"data"`
+}
+
+type WithdrawWalletInfoListResult {
+	Code    int                  `json:"code"`
+	Message string               `json:"message"`
+	Data    []WithdrawWalletInfo `json:"data"`
+}
+
+type WithdrawRecordPageData {
+	Content       []WithdrawRecord `json:"content"`
+	TotalElements int64            `json:"totalElements"`
+	Number        int64            `json:"number"`
+	TotalPages    int64            `json:"totalPages"`
+	HasNext       bool             `json:"hasNext"`
+	IsLast        bool             `json:"isLast"`
+}
+
+type WithdrawRecordPageResult {
+	Code    int                    `json:"code"`
+	Message string                 `json:"message"`
+	Data    WithdrawRecordPageData `json:"data"`
+}
+
+service ucenterapi {
+	@handler Register
+	post /uc/register/phone (Request) returns (ResponseResult)
+
+	@handler SendCode
+	post /uc/mobile/code (CodeRequest) returns (CodeResponseResult)
+
+	@handler Login
+	post /uc/login (LoginReq) returns (LoginResult)
+
+	@handler CheckLogin
+	post /uc/check/login returns (BoolResult)
+}
+
+@server (
+	middleware: Auth
+)
+service ucenterapi {
+	@handler FindWalletBySymbol
+	post /uc/asset/wallet/:coinName (AssetReq) returns (MemberWalletResult)
+
+	@handler FindWallet
+	post /uc/asset/wallet returns (MemberWalletListResult)
+
+	@handler ResetAddress
+	post /uc/asset/wallet/reset-address (AssetReq) returns (StringResult)
+
+	@handler FindTransaction
+	post /uc/asset/transaction/all (AssetReq) returns (MemberTransactionPageResult)
+
+	@handler SecuritySetting
+	post /uc/approve/security/setting returns (MemberSecurityResult)
+
+	@handler QueryWithdrawCoin
+	post /uc/withdraw/support/coin/info returns (WithdrawWalletInfoListResult)
+
+	@handler SendWithdrawCode
+	post /uc/mobile/withdraw/code returns (StringResult)
+
+	@handler WithdrawCode
+	post /uc/withdraw/apply/code (WithdrawReq) returns (StringResult)
+
+	@handler WithdrawRecord
+	post /uc/withdraw/record (WithdrawReq) returns (WithdrawRecordPageResult)
+}
+

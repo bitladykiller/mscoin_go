@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package rate;
+
+// Keep the generated package aligned with the shared grpc-common contract path.
+option go_package = "grpc-common/market/types/rate";
+
+message RateReq {
+  string unit = 1;
+  string ip = 2;
+}
+
+message RateRes{
+  double rate = 1;
+}
+
+service ExchangeRate {
+  rpc usdRate(RateReq) returns(RateRes);
+}

@@ -28,70 +28,70 @@ import "time"
 //   - SuperPartner：普通会员 -> 超级合伙人 -> P 级超级合伙人
 //   - Status：正常状态 -> 违规状态
 type Member struct {
-	Id                         int64   `db:"id" gorm:"column:id"`                                   // 会员 ID，自增主键
-	AliNo                      string  `db:"ali_no" gorm:"column:ali_no"`                           // 支付宝账号，用于收款
-	QrCodeUrl                  string  `db:"qr_code_url" gorm:"column:qr_code_url"`                 // 二维码 URL，收款码图片
-	AppealSuccessTimes         int64   `db:"appeal_success_times" gorm:"column:appeal_success_times"` // 申诉成功次数
-	AppealTimes                int64   `db:"appeal_times" gorm:"column:appeal_times"`               // 申诉次数
-	ApplicationTime            int64   `db:"application_time" gorm:"column:application_time"`       // 申请时间（毫秒时间戳）
-	Avatar                     string  `db:"avatar" gorm:"column:avatar"`                           // 头像 URL
-	Bank                       string  `db:"bank" gorm:"column:bank"`                               // 银行名称
-	Branch                     string  `db:"branch" gorm:"column:branch"`                           // 银行支行
-	CardNo                     string  `db:"card_no" gorm:"column:card_no"`                         // 银行卡号
-	CertifiedBusinessApplyTime int64   `db:"certified_business_apply_time" gorm:"column:certified_business_apply_time"` // 认证商家申请时间（毫秒时间戳）
-	CertifiedBusinessCheckTime int64   `db:"certified_business_check_time" gorm:"column:certified_business_check_time"` // 认证商家审核时间（毫秒时间戳）
-	CertifiedBusinessStatus    int64   `db:"certified_business_status" gorm:"column:certified_business_status"` // 认证商家状态：0-未申请，1-审核中，2-已通过，3-已拒绝
-	ChannelId                  int64   `db:"channel_id" gorm:"column:channel_id"`                   // 渠道 ID，用于渠道推广统计
-	Email                      string  `db:"email" gorm:"column:email"`                             // 邮箱地址
-	FirstLevel                 int64   `db:"first_level" gorm:"column:first_level"`                 // 一级下线数量，推广统计
-	GoogleDate                 int64   `db:"google_date" gorm:"column:google_date"`                 // Google 验证器绑定时间（毫秒时间戳）
-	GoogleKey                  string  `db:"google_key" gorm:"column:google_key"`                   // Google 验证器密钥
-	GoogleState                int64   `db:"google_state" gorm:"column:google_state"`               // Google 验证器状态：0-未绑定，1-已绑定
-	IdNumber                   string  `db:"id_number" gorm:"column:id_number"`                     // 身份证号
-	InviterId                  int64   `db:"inviter_id" gorm:"column:inviter_id"`                   // 邀请人 ID，上级推广员
-	IsChannel                  int64   `db:"is_channel" gorm:"column:is_channel"`                   // 是否为渠道商：0-否，1-是
-	JyPassword                 string  `db:"jy_password" gorm:"column:jy_password"`                 // 交易密码（加密后），用于提现验证
-	LastLoginTime              int64   `db:"last_login_time" gorm:"column:last_login_time"`         // 最后登录时间（毫秒时间戳）
-	City                       string  `db:"city" gorm:"column:city"`                               // 城市
-	Country                    string  `db:"country" gorm:"column:country"`                         // 国家
-	District                   string  `db:"district" gorm:"column:district"`                       // 区/县
-	Province                   string  `db:"province" gorm:"column:province"`                       // 省份
-	LoginCount                 int64   `db:"login_count" gorm:"column:login_count"`                 // 登录次数
-	LoginLock                  int64   `db:"login_lock" gorm:"column:login_lock"`                   // 登录锁定状态：0-未锁定，1-已锁定
-	Margin                     string  `db:"margin" gorm:"column:margin"`                           // 保证金
-	MemberLevel                int64   `db:"member_level" gorm:"column:member_level"`               // 会员等级：0-普通会员，1-实名会员，2-认证商家
-	MobilePhone                string  `db:"mobile_phone" gorm:"column:mobile_phone"`               // 手机号，登录账号
-	Password                   string  `db:"password" gorm:"column:password"`                       // 密码（加密后），登录密码
-	PromotionCode              string  `db:"promotion_code" gorm:"column:promotion_code"`           // 推广码，用于下线注册
-	PublishAdvertise           int64   `db:"publish_advertise" gorm:"column:publish_advertise"`     // 发布广告数
-	RealName                   string  `db:"real_name" gorm:"column:real_name"`                     // 真实姓名
-	RealNameStatus             int64   `db:"real_name_status" gorm:"column:real_name_status"`       // 实名认证状态：0-未认证，1-已认证
-	RegistrationTime           int64   `db:"registration_time" gorm:"column:registration_time"`     // 注册时间（毫秒时间戳）
-	Salt                       string  `db:"salt" gorm:"column:salt"`                               // 密码盐值，用于密码加密
-	SecondLevel                int64   `db:"second_level" gorm:"column:second_level"`               // 二级下线数量，推广统计
-	SignInAbility              int64   `db:"sign_in_ability" gorm:"column:sign_in_ability"`         // 签到能力
-	Status                     int64   `db:"status" gorm:"column:status"`                           // 会员状态：0-正常，1-违规
-	ThirdLevel                 int64   `db:"third_level" gorm:"column:third_level"`                 // 三级下线数量，推广统计
-	Token                      string  `db:"token" gorm:"column:token"`                             // 登录 Token（已废弃，使用 JWT）
-	TokenExpireTime            int64   `db:"token_expire_time" gorm:"column:token_expire_time"`     // Token 过期时间（已废弃）
-	TransactionStatus          int64   `db:"transaction_status" gorm:"column:transaction_status"`   // 交易状态
-	TransactionTime            int64   `db:"transaction_time" gorm:"column:transaction_time"`       // 交易时间（毫秒时间戳）
-	Transactions               int64   `db:"transactions" gorm:"column:transactions"`               // 交易次数
-	Username                   string  `db:"username" gorm:"column:username"`                       // 用户名，显示名称
-	QrWeCodeUrl                string  `db:"qr_we_code_url" gorm:"column:qr_we_code_url"`           // 微信二维码 URL
-	Wechat                     string  `db:"wechat" gorm:"column:wechat"`                           // 微信号
-	Local                      string  `db:"local" gorm:"column:local"`                             // 地区
-	Integration                int64   `db:"integration" gorm:"column:integration"`                 // 积分
-	MemberGradeId              int64   `db:"member_grade_id" gorm:"column:member_grade_id"`         // 会员等级 ID
-	KycStatus                  int64   `db:"kyc_status" gorm:"column:kyc_status"`                   // KYC 认证状态：0-未认证，1-认证中，2-已认证，3-认证失败
-	GeneralizeTotal            int64   `db:"generalize_total" gorm:"column:generalize_total"`       // 推广总数
-	InviterParentId            int64   `db:"inviter_parent_id" gorm:"column:inviter_parent_id"`     // 邀请人父 ID
-	SuperPartner               string  `db:"super_partner" gorm:"column:super_partner"`             // 超级合伙人状态："0"-普通，"1"-超级合伙人，"2"-P 级
-	KickFee                    float64 `db:"kick_fee" gorm:"column:kick_fee"`                       // 返佣手续费比例
-	Power                      float64 `db:"power" gorm:"column:power"`                             // 算力
-	TeamLevel                  int64   `db:"team_level" gorm:"column:team_level"`                   // 团队等级
-	TeamPower                  float64 `db:"team_power" gorm:"column:team_power"`                   // 团队算力
-	MemberLevelId              int64   `db:"member_level_id" gorm:"column:member_level_id"`         // 会员等级 ID
+	Id                         int64   `db:"id"`                                   // 会员 ID，自增主键
+	AliNo                      string  `db:"ali_no"`                           // 支付宝账号，用于收款
+	QrCodeUrl                  string  `db:"qr_code_url"`                 // 二维码 URL，收款码图片
+	AppealSuccessTimes         int64   `db:"appeal_success_times"` // 申诉成功次数
+	AppealTimes                int64   `db:"appeal_times"`               // 申诉次数
+	ApplicationTime            int64   `db:"application_time"`       // 申请时间（毫秒时间戳）
+	Avatar                     string  `db:"avatar"`                           // 头像 URL
+	Bank                       string  `db:"bank"`                               // 银行名称
+	Branch                     string  `db:"branch"`                           // 银行支行
+	CardNo                     string  `db:"card_no"`                         // 银行卡号
+	CertifiedBusinessApplyTime int64   `db:"certified_business_apply_time"` // 认证商家申请时间（毫秒时间戳）
+	CertifiedBusinessCheckTime int64   `db:"certified_business_check_time"` // 认证商家审核时间（毫秒时间戳）
+	CertifiedBusinessStatus    int64   `db:"certified_business_status"` // 认证商家状态：0-未申请，1-审核中，2-已通过，3-已拒绝
+	ChannelId                  int64   `db:"channel_id"`                   // 渠道 ID，用于渠道推广统计
+	Email                      string  `db:"email"`                             // 邮箱地址
+	FirstLevel                 int64   `db:"first_level"`                 // 一级下线数量，推广统计
+	GoogleDate                 int64   `db:"google_date"`                 // Google 验证器绑定时间（毫秒时间戳）
+	GoogleKey                  string  `db:"google_key"`                   // Google 验证器密钥
+	GoogleState                int64   `db:"google_state"`               // Google 验证器状态：0-未绑定，1-已绑定
+	IdNumber                   string  `db:"id_number"`                     // 身份证号
+	InviterId                  int64   `db:"inviter_id"`                   // 邀请人 ID，上级推广员
+	IsChannel                  int64   `db:"is_channel"`                   // 是否为渠道商：0-否，1-是
+	JyPassword                 string  `db:"jy_password"`                 // 交易密码（加密后），用于提现验证
+	LastLoginTime              int64   `db:"last_login_time"`         // 最后登录时间（毫秒时间戳）
+	City                       string  `db:"city"`                               // 城市
+	Country                    string  `db:"country"`                         // 国家
+	District                   string  `db:"district"`                       // 区/县
+	Province                   string  `db:"province"`                       // 省份
+	LoginCount                 int64   `db:"login_count"`                 // 登录次数
+	LoginLock                  int64   `db:"login_lock"`                   // 登录锁定状态：0-未锁定，1-已锁定
+	Margin                     string  `db:"margin"`                           // 保证金
+	MemberLevel                int64   `db:"member_level"`               // 会员等级：0-普通会员，1-实名会员，2-认证商家
+	MobilePhone                string  `db:"mobile_phone"`               // 手机号，登录账号
+	Password                   string  `db:"password"`                       // 密码（加密后），登录密码
+	PromotionCode              string  `db:"promotion_code"`           // 推广码，用于下线注册
+	PublishAdvertise           int64   `db:"publish_advertise"`     // 发布广告数
+	RealName                   string  `db:"real_name"`                     // 真实姓名
+	RealNameStatus             int64   `db:"real_name_status"`       // 实名认证状态：0-未认证，1-已认证
+	RegistrationTime           int64   `db:"registration_time"`     // 注册时间（毫秒时间戳）
+	Salt                       string  `db:"salt"`                               // 密码盐值，用于密码加密
+	SecondLevel                int64   `db:"second_level"`               // 二级下线数量，推广统计
+	SignInAbility              int64   `db:"sign_in_ability"`         // 签到能力
+	Status                     int64   `db:"status"`                           // 会员状态：0-正常，1-违规
+	ThirdLevel                 int64   `db:"third_level"`                 // 三级下线数量，推广统计
+	Token                      string  `db:"token"`                             // 登录 Token（已废弃，使用 JWT）
+	TokenExpireTime            int64   `db:"token_expire_time"`     // Token 过期时间（已废弃）
+	TransactionStatus          int64   `db:"transaction_status"`   // 交易状态
+	TransactionTime            int64   `db:"transaction_time"`       // 交易时间（毫秒时间戳）
+	Transactions               int64   `db:"transactions"`               // 交易次数
+	Username                   string  `db:"username"`                       // 用户名，显示名称
+	QrWeCodeUrl                string  `db:"qr_we_code_url"`           // 微信二维码 URL
+	Wechat                     string  `db:"wechat"`                           // 微信号
+	Local                      string  `db:"local"`                             // 地区
+	Integration                int64   `db:"integration"`                 // 积分
+	MemberGradeId              int64   `db:"member_grade_id"`         // 会员等级 ID
+	KycStatus                  int64   `db:"kyc_status"`                   // KYC 认证状态：0-未认证，1-认证中，2-已认证，3-认证失败
+	GeneralizeTotal            int64   `db:"generalize_total"`       // 推广总数
+	InviterParentId            int64   `db:"inviter_parent_id"`     // 邀请人父 ID
+	SuperPartner               string  `db:"super_partner"`             // 超级合伙人状态："0"-普通，"1"-超级合伙人，"2"-P 级
+	KickFee                    float64 `db:"kick_fee"`                       // 返佣手续费比例
+	Power                      float64 `db:"power"`                             // 算力
+	TeamLevel                  int64   `db:"team_level"`                   // 团队等级
+	TeamPower                  float64 `db:"team_power"`                   // 团队算力
+	MemberLevelId              int64   `db:"member_level_id"`         // 会员等级 ID
 }
 
 // --- 会员等级常量 ---

@@ -45,17 +45,17 @@ var transactionTypeNames = map[int]string{
 //   - Type：交易类型（充值、提现等）
 //   - Flag：交易标记（成功、失败、处理中等）
 type MemberTransaction struct {
-	Id          int64   `db:"id" gorm:"column:id"`                   // 交易 ID，自增主键
-	Address     string  `db:"address" gorm:"column:address"`         // 交易地址，充值/提现的目标地址
-	Amount      float64 `db:"amount" gorm:"column:amount"`           // 交易金额
-	CreateTime  int64   `db:"create_time" gorm:"column:create_time"` // 创建时间（毫秒时间戳）
-	Fee         float64 `db:"fee" gorm:"column:fee"`                 // 手续费
-	Flag        int32   `db:"flag" gorm:"column:flag"`               // 标记：交易状态标记
-	MemberId    int64   `db:"member_id" gorm:"column:member_id"`     // 会员 ID，关联会员表
-	Symbol      string  `db:"symbol" gorm:"column:symbol"`           // 币种符号，如 BTC、ETH
-	Type        int32   `db:"type" gorm:"column:type"`               // 交易类型：0-充值，1-提现，2-转账，3-兑换
-	DiscountFee string  `db:"discount_fee" gorm:"column:discount_fee"` // 折扣手续费
-	RealFee     string  `db:"real_fee" gorm:"column:real_fee"`       // 实际手续费
+	Id          int64   `db:"id"`                   // 交易 ID，自增主键
+	Address     string  `db:"address"`         // 交易地址，充值/提现的目标地址
+	Amount      float64 `db:"amount"`           // 交易金额
+	CreateTime  int64   `db:"create_time"` // 创建时间（毫秒时间戳）
+	Fee         float64 `db:"fee"`                 // 手续费
+	Flag        int32   `db:"flag"`               // 标记：交易状态标记
+	MemberId    int64   `db:"member_id"`     // 会员 ID，关联会员表
+	Symbol      string  `db:"symbol"`           // 币种符号，如 BTC、ETH
+	Type        int32   `db:"type"`               // 交易类型：0-充值，1-提现，2-转账，3-兑换
+	DiscountFee string  `db:"discount_fee"` // 折扣手续费
+	RealFee     string  `db:"real_fee"`       // 实际手续费
 }
 
 // ToProto 转换为 protobuf 消息

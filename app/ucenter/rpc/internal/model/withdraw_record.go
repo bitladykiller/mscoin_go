@@ -54,20 +54,20 @@ const (
 //   - 更新：jobcenter 更新状态和交易号
 //   - 查询：前端展示提现历史
 type WithdrawRecord struct {
-	Id                int64   `db:"id" gorm:"column:id"`                         // 记录 ID，自增主键
-	MemberId          int64   `db:"member_id" gorm:"column:member_id"`           // 会员 ID，关联会员表
-	CoinId            int64   `db:"coin_id" gorm:"column:coin_id"`               // 币种 ID，关联币种表
-	TotalAmount       float64 `db:"total_amount" gorm:"column:total_amount"`     // 提现总额
-	Fee               float64 `db:"fee" gorm:"column:fee"`                       // 手续费
-	ArrivedAmount     float64 `db:"arrived_amount" gorm:"column:arrived_amount"` // 到账金额 = 提现总额 - 手续费
-	Address           string  `db:"address" gorm:"column:address"`               // 提现地址，目标钱包地址
-	Remark            string  `db:"remark" gorm:"column:remark"`                 // 备注
-	TransactionNumber string  `db:"transaction_number" gorm:"column:transaction_number"` // 交易号，链上交易哈希
-	CanAutoWithdraw   int32   `db:"can_auto_withdraw" gorm:"column:can_auto_withdraw"`   // 是否可自动提现：0-否，1-是
-	IsAuto            int32   `db:"isAuto" gorm:"column:isAuto"`                 // 是否自动处理：0-人工，1-自动
-	Status            int32   `db:"status" gorm:"column:status"`                 // 提现状态：0-处理中，1-等待，2-失败，3-成功
-	CreateTime        int64   `db:"create_time" gorm:"column:create_time"`       // 创建时间（毫秒时间戳）
-	DealTime          int64   `db:"deal_time" gorm:"column:deal_time"`           // 处理时间（毫秒时间戳）
+	Id                int64   `db:"id"`                         // 记录 ID，自增主键
+	MemberId          int64   `db:"member_id"`           // 会员 ID，关联会员表
+	CoinId            int64   `db:"coin_id"`               // 币种 ID，关联币种表
+	TotalAmount       float64 `db:"total_amount"`     // 提现总额
+	Fee               float64 `db:"fee"`                       // 手续费
+	ArrivedAmount     float64 `db:"arrived_amount"` // 到账金额 = 提现总额 - 手续费
+	Address           string  `db:"address"`               // 提现地址，目标钱包地址
+	Remark            string  `db:"remark"`                 // 备注
+	TransactionNumber string  `db:"transaction_number"` // 交易号，链上交易哈希
+	CanAutoWithdraw   int32   `db:"can_auto_withdraw"`   // 是否可自动提现：0-否，1-是
+	IsAuto            int32   `db:"isAuto"`                 // 是否自动处理：0-人工，1-自动
+	Status            int32   `db:"status"`                 // 提现状态：0-处理中，1-等待，2-失败，3-成功
+	CreateTime        int64   `db:"create_time"`       // 创建时间（毫秒时间戳）
+	DealTime          int64   `db:"deal_time"`           // 处理时间（毫秒时间戳）
 }
 
 // NewWithdrawRecordForApply 从一条已验证的用户申请构建初始持久化提现记录。

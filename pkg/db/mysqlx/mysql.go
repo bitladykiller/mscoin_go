@@ -3,13 +3,11 @@
 // 本包封装了 github.com/jmoiron/sqlx 库，提供：
 //   - 统一的数据库连接创建方式
 //   - 自动驼峰到蛇形命名转换（CamelCase -> snake_case）
-//   - 兼容传统 GORM 标签的字段映射
 //   - 连接池配置
 //
 // 命名转换说明：
 //   - 结构体字段 `UserName` 自动映射到数据库列 `user_name`
-//   - 支持 `gorm:"column:custom_name"` 标签自定义列名
-//   - 这使得遗留的 GORM 结构体无需修改即可使用 sqlx
+//   - 使用 `db:"column_name"` 标签可自定义列名
 //
 // 使用场景：
 //   - 各微服务的数据库连接初始化
@@ -25,7 +23,6 @@ import (
 	// MySQL 驱动，匿名导入以注册驱动
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
-	"github.com/jmoiron/sqlx/reflectx"
 )
 
 // mapperOnce 确保全局 NameMapper 只设置一次。
@@ -50,8 +47,8 @@ type Config struct {
 
 // New 打开 MySQL 连接并标准化结构体字段映射。
 //
-// 重构保留了通过 `sqlx` 使用显式 SQL 的方式，但也保留了便捷的字段映射，
-// 以便遗留结构体继续携带历史的 `gorm:"column:"` 标签。
+// 本项目使用纯 sqlx 进行数据库操作，通过 `db:"column_name"` 标签进行字段映射，
+// 自动支持驼峰到蛇形的命名转换。
 //
 // 参数：
 //   - cfg: MySQL 配置
@@ -85,10 +82,6 @@ func New(cfg Config) (*sqlx.DB, error) {
 		sqlx.NameMapper = toSnake
 	})
 
-	// 设置当前连接的映射器，支持 GORM 标签
-	// 这允许结构体使用 `gorm:"column:custom_name"` 自定义列名
-	db.Mapper = reflectx.NewMapperTagFunc("gorm", toSnake, parseGormColumn)
-
 	// 配置连接池
 	if cfg.MaxOpenConns > 0 {
 		db.SetMaxOpenConns(cfg.MaxOpenConns)
@@ -104,30 +97,6 @@ func New(cfg Config) (*sqlx.DB, error) {
 	}
 
 	return db, nil
-}
-
-// parseGormColumn 解析 GORM 标签中的 column 指令。
-//
-// GORM 标签格式示例：`gorm:"column:user_name;type:varchar(100)"`
-// 此函数提取其中的 column 值用于字段映射。
-//
-// 参数：
-//   - tag: GORM 标签字符串
-//
-// 返回值：
-//   - string: 列名，如果未找到 column 指令则返回原始标签
-func parseGormColumn(tag string) string {
-	// 按分号分割标签的各个部分
-	parts := strings.Split(tag, ";")
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		// 查找 column: 前缀
-		if strings.HasPrefix(part, "column:") {
-			return strings.TrimPrefix(part, "column:")
-		}
-	}
-	// 未找到 column 指令，返回原始标签
-	return tag
 }
 
 // toSnake 将驼峰命名转换为蛇形命名。

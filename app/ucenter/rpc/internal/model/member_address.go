@@ -21,14 +21,14 @@ import withdrawpb "mscoin_go/app/ucenter/rpc/pb/withdraw"
 //   - 会员可以维护多个币种的多个提现地址
 //   - 地址簿便于会员快速选择常用提现地址
 type MemberAddress struct {
-	Id         int64  `db:"id" gorm:"column:id"`                   // 地址 ID，自增主键
-	MemberId   int64  `db:"member_id" gorm:"column:member_id"`     // 会员 ID，关联会员表
-	CoinId     int64  `db:"coin_id" gorm:"column:coin_id"`         // 币种 ID，关联币种表
-	Address    string `db:"address" gorm:"column:address"`         // 提现地址，区块链钱包地址
-	Remark     string `db:"remark" gorm:"column:remark"`           // 备注说明，会员自定义地址名称
-	Status     int32  `db:"status" gorm:"column:status"`           // 地址状态：0-正常，1-已删除
-	CreateTime int64  `db:"create_time" gorm:"column:create_time"` // 创建时间（毫秒时间戳）
-	DeleteTime int64  `db:"delete_time" gorm:"column:delete_time"` // 删除时间（毫秒时间戳），软删除
+	Id         int64  `db:"id"`                   // 地址 ID，自增主键
+	MemberId   int64  `db:"member_id"`     // 会员 ID，关联会员表
+	CoinId     int64  `db:"coin_id"`         // 币种 ID，关联币种表
+	Address    string `db:"address"`         // 提现地址，区块链钱包地址
+	Remark     string `db:"remark"`           // 备注说明，会员自定义地址名称
+	Status     int32  `db:"status"`           // 地址状态：0-正常，1-已删除
+	CreateTime int64  `db:"create_time"` // 创建时间（毫秒时间戳）
+	DeleteTime int64  `db:"delete_time"` // 删除时间（毫秒时间戳），软删除
 }
 
 // ToProto 转换为 protobuf 消息

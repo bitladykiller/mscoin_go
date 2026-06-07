@@ -54,20 +54,20 @@ const (
 //   - CreateTime: 创建时间戳（毫秒）
 //   - DealTime: 处理完成时间戳（毫秒）
 type WithdrawRecord struct {
-	Id                int64   `db:"id" gorm:"column:id"`
-	MemberId          int64   `db:"member_id" gorm:"column:member_id"`
-	CoinId            int64   `db:"coin_id" gorm:"column:coin_id"`
-	TotalAmount       float64 `db:"total_amount" gorm:"column:total_amount"`
-	Fee               float64 `db:"fee" gorm:"column:fee"`
-	ArrivedAmount     float64 `db:"arrived_amount" gorm:"column:arrived_amount"`
-	Address           string  `db:"address" gorm:"column:address"`
-	Remark            string  `db:"remark" gorm:"column:remark"`
-	TransactionNumber string  `db:"transaction_number" gorm:"column:transaction_number"`
-	CanAutoWithdraw   int32   `db:"can_auto_withdraw" gorm:"column:can_auto_withdraw"`
-	IsAuto            int32   `db:"isAuto" gorm:"column:isAuto"`
-	Status            int32   `db:"status" gorm:"column:status"`
-	CreateTime        int64   `db:"create_time" gorm:"column:create_time"`
-	DealTime          int64   `db:"deal_time" gorm:"column:deal_time"`
+	Id                int64   `db:"id"`
+	MemberId          int64   `db:"member_id"`
+	CoinId            int64   `db:"coin_id"`
+	TotalAmount       float64 `db:"total_amount"`
+	Fee               float64 `db:"fee"`
+	ArrivedAmount     float64 `db:"arrived_amount"`
+	Address           string  `db:"address"`
+	Remark            string  `db:"remark"`
+	TransactionNumber string  `db:"transaction_number"`
+	CanAutoWithdraw   int32   `db:"can_auto_withdraw"`
+	IsAuto            int32   `db:"isAuto"`
+	Status            int32   `db:"status"`
+	CreateTime        int64   `db:"create_time"`
+	DealTime          int64   `db:"deal_time"`
 }
 
 // WithdrawRecordEvent 是 ucenter-rpc 发出的 Kafka 消息载荷。

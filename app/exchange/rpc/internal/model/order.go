@@ -74,39 +74,39 @@ var typeCodes = map[string]int{
 // 表示一个交易订单的完整信息。
 type ExchangeOrder struct {
 	// ID 是数据库自增主键。
-	ID int64 `db:"id" gorm:"column:id"`
+	ID int64 `db:"id"`
 	// OrderId 是业务订单号，格式为 "E" + 时间戳纳秒。
-	OrderId string `db:"order_id" gorm:"column:order_id"`
+	OrderId string `db:"order_id"`
 	// Amount 是订单总数量。
-	Amount float64 `db:"amount" gorm:"column:amount"`
+	Amount float64 `db:"amount"`
 	// BaseSymbol 是基础币种符号，如 USDT。
-	BaseSymbol string `db:"base_symbol" gorm:"column:base_symbol"`
+	BaseSymbol string `db:"base_symbol"`
 	// CanceledTime 是订单取消时间戳（毫秒）。
-	CanceledTime int64 `db:"canceled_time" gorm:"column:canceled_time"`
+	CanceledTime int64 `db:"canceled_time"`
 	// CoinSymbol 是交易币种符号，如 BTC。
-	CoinSymbol string `db:"coin_symbol" gorm:"column:coin_symbol"`
+	CoinSymbol string `db:"coin_symbol"`
 	// CompletedTime 是订单完成时间戳（毫秒）。
-	CompletedTime int64 `db:"completed_time" gorm:"column:completed_time"`
+	CompletedTime int64 `db:"completed_time"`
 	// Direction 是订单方向（0:买入, 1:卖出）。
-	Direction int `db:"direction" gorm:"column:direction"`
+	Direction int `db:"direction"`
 	// MemberId 是会员 ID。
-	MemberId int64 `db:"member_id" gorm:"column:member_id"`
+	MemberId int64 `db:"member_id"`
 	// Price 是订单价格，市价单为 0。
-	Price float64 `db:"price" gorm:"column:price"`
+	Price float64 `db:"price"`
 	// Status 是订单状态（0:交易中, 1:已完成, 2:已取消, 3:已超时, 4:初始化）。
-	Status int `db:"status" gorm:"column:status"`
+	Status int `db:"status"`
 	// Symbol 是交易对符号，如 "BTCUSDT"。
-	Symbol string `db:"symbol" gorm:"column:symbol"`
+	Symbol string `db:"symbol"`
 	// Time 是订单创建时间戳（毫秒）。
-	Time int64 `db:"time" gorm:"column:time"`
+	Time int64 `db:"time"`
 	// TradedAmount 是已成交数量。
-	TradedAmount float64 `db:"traded_amount" gorm:"column:traded_amount"`
+	TradedAmount float64 `db:"traded_amount"`
 	// Turnover 是已成交金额。
-	Turnover float64 `db:"turnover" gorm:"column:turnover"`
+	Turnover float64 `db:"turnover"`
 	// Type 是订单类型（0:市价, 1:限价）。
-	Type int `db:"type" gorm:"column:type"`
+	Type int `db:"type"`
 	// UseDiscount 是使用的折扣金额。
-	UseDiscount string `db:"use_discount" gorm:"column:use_discount"`
+	UseDiscount string `db:"use_discount"`
 }
 
 // OrderView 是订单的视图对象，用于对外传输。

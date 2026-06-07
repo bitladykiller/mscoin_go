@@ -1,44 +1,40 @@
 # ucenter
 
-This directory now contains the migrated `go-zero` implementation for the
-minimum viable `ucenter` slice.
+此目录现在包含 `ucenter` 最小可行切片的已迁移 `go-zero` 实现。
 
-Implemented submodules:
+已实现的子模块：
 
-- `api/`
-- `rpc/`
+- `api/`   # HTTP 适配器
+- `rpc/`   # RPC 服务
 
-Implemented capabilities:
+已实现的功能：
 
-- register SMS-style verification code caching
-- phone registration with captcha verification
-- user login with captcha passthrough
-- login-token verification
-- member lookup by user id
-- security setting query with legacy boolean-string flags
-- wallet list query
-- wallet lookup by coin symbol
-- wallet address reset for BTC through Bitcoin Core wallet-managed address allocation
-- transaction history query with legacy pagination envelope
-- withdraw supported coin aggregation
-- withdraw verification code caching
-- withdraw apply with transactional balance freeze and Kafka event publish
-- withdraw history query
+- 注册短信样式验证码缓存
+- 手机号注册带验证码验证
+- 用户登录带验证码透传
+- 登录令牌验证
+- 按用户 ID 查询会员
+- 安全设置查询带遗留布尔字符串标志
+- 钱包列表查询
+- 按币种符号查询钱包
+- 通过 Bitcoin Core 钱包管理的地址分配进行 BTC 钱包地址重置
+- 交易历史查询带遗留分页封装
+- 提现支持币种聚合
+- 提现验证码缓存
+- 提现申请带事务性余额冻结和 Kafka 事件发布
+- 提现历史查询
 
-Technical rules used in this submodule:
+此子模块使用的技术规则：
 
-- API layer only handles HTTP parsing, JWT middleware, and RPC adaptation
-- RPC layer owns business orchestration and repository access
-- MySQL persistence is implemented with `sqlx`
-- register and withdraw verification codes are cached through `go-redis`
-- transaction history reads directly from MySQL through repository filtering and paging
-- cross-service coin metadata lookup is delegated to `market-rpc`
-- BTC address allocation is isolated in `pkg/btcx` and delegated to Bitcoin Core
-  so `ucenter-rpc` and `jobcenter` use the same node wallet
+- API 层仅处理 HTTP 解析、JWT 中间件和 RPC 适配
+- RPC 层拥有业务编排和仓库访问
+- MySQL 持久化使用 `sqlx` 实现
+- 注册和提现验证码通过 `go-redis` 缓存
+- 交易历史直接从 MySQL 通过仓库过滤和分页读取
+- 跨服务币种元数据查找委托给 `market-rpc`
+- BTC 地址分配隔离在 `pkg/btcx` 中并委托给 Bitcoin Core，使 `ucenter-rpc` 和 `jobcenter` 使用相同的节点钱包
 
-Current async follow-up:
+当前异步后续处理：
 
-- the `ucenter` side now persists withdraw applications and publishes Kafka
-  events in the standard refactor layout
-- the downstream Kafka consumer / `jobcenter` chain execution side is already
-  migrated, including BTC withdraw finalization
+- `ucenter` 端现在以标准重构布局持久化提现申请并发布 Kafka 事件
+- 下游 Kafka 消费者/`jobcenter` 链执行端也已迁移，包括 BTC 提现最终化

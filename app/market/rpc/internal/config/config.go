@@ -1,4 +1,4 @@
-// Package config defines the market RPC service configuration.
+// Package config 定义 market RPC 服务的配置。
 package config
 
 import (
@@ -9,11 +9,11 @@ import (
 	"github.com/zeromicro/go-zero/zrpc"
 )
 
-// Config groups all runtime dependencies required by the market RPC service.
+// Config 聚合 market RPC 服务所需的所有运行时依赖。
 //
-// Keeping infrastructure configuration strongly typed is important in this
-// refactor because the old project configured each service a little
-// differently. The new project intentionally makes those differences explicit.
+// 在此次重构中，保持基础设施配置的强类型非常重要，
+// 因为旧项目对每个服务的配置略有不同。
+// 新项目特意将这些差异显式化，使配置更加清晰。
 type Config struct {
 	zrpc.RpcServerConf
 	Mysql mysqlx.Config

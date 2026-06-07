@@ -15,10 +15,9 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// ServiceContext wires all runtime dependencies for the market RPC service.
+// ServiceContext 连接 market RPC 服务的所有运行时依赖。
 //
-// The detailed dependency graph is kept here so transport-layer logic files do
-// not need to know how infrastructure is initialized.
+// 此处保留详细的依赖图，以便传输层的 logic 文件无需了解基础设施是如何初始化的。
 type ServiceContext struct {
 	Config config.Config
 
@@ -63,7 +62,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	}
 }
 
-// Close releases long-lived dependencies.
+// Close 释放长生命周期依赖。
 func (s *ServiceContext) Close() {
 	if s.Mongo != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

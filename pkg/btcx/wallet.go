@@ -19,9 +19,8 @@ const (
 	addressChecksumSize = 4
 )
 
-// Wallet generates deterministic BTC-compatible address material used by the
-// legacy MSCoin asset service. The refactor keeps this helper in `pkg/` so
-// address generation remains reusable and independent from transport logic.
+// Wallet 生成传统 MSCoin 资产服务使用的确定性 BTC 兼容地址材料。
+// 重构将此辅助工具保留在 `pkg/` 中，以便地址生成保持可复用且独立于传输逻辑。
 type Wallet struct {
 	privateKey ecdsa.PrivateKey
 	publicKey  []byte
@@ -50,9 +49,8 @@ func newKeyPair() (ecdsa.PrivateKey, []byte, error) {
 	return *privateKey, publicKey, nil
 }
 
-// TestnetAddress returns a Base58-encoded BTC testnet address compatible with
-// the legacy implementation. Testnet is preserved here because the historical
-// reset-address flow created testnet addresses for BTC wallets.
+// TestnetAddress 返回与传统实现兼容的 Base58 编码 BTC 测试网地址。
+// 这里保留测试网是因为历史重置地址流程为 BTC 钱包创建了测试网地址。
 func (w *Wallet) TestnetAddress() string {
 	publicHash := ripemd160Hash(w.publicKey)
 	versioned := append([]byte{testnetVersion}, publicHash...)
@@ -61,8 +59,8 @@ func (w *Wallet) TestnetAddress() string {
 	return string(encodeBase58(payload))
 }
 
-// EncodedPrivateKey serializes the private key into PEM and then Base58-encodes
-// the PEM bytes, mirroring the historical storage format used by MSCoin.
+// EncodedPrivateKey 将私钥序列化为 PEM，然后 Base58 编码 PEM 字节，
+// 镜像 MSCoin 使用的历史存储格式。
 func (w *Wallet) EncodedPrivateKey() (string, error) {
 	keyBytes, err := x509.MarshalECPrivateKey(&w.privateKey)
 	if err != nil {

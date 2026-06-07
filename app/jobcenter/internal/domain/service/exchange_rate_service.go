@@ -19,7 +19,7 @@ type exchangeRateFetcher interface {
 	FetchExchangeRate(ctx context.Context) (*okxx.ExchangeRate, error)
 }
 
-// ExchangeRateSyncService owns the asynchronous USD/CNY synchronization task.
+// ExchangeRateSyncService 负责异步 USD/CNY 汇率同步任务。
 type ExchangeRateSyncService struct {
 	cache   exchangeRateCache
 	fetcher exchangeRateFetcher

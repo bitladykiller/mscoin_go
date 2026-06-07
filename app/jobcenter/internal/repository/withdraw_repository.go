@@ -11,15 +11,12 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// WithdrawRepository encapsulates the direct SQL that jobcenter needs for
-// withdraw status finalization.
+// WithdrawRepository 封装 jobcenter 提现状态终结所需的直接 SQL 操作。
 //
-// Why jobcenter touches this table directly in the current migration phase:
-//   - protobuf regeneration is intentionally avoided for now because the repo
-//     pins an older grpc toolchain
-//   - the withdraw table is still the source of truth for async execution state
-//   - updating one narrow repository keeps the cross-service coupling explicit
-//     and localized until a dedicated RPC contract is introduced later
+// 为什么在当前迁移阶段 jobcenter 直接操作此表：
+//   - 目前刻意避免重新生成 protobuf，因为仓库使用较旧的 grpc 工具链
+//   - 提现表仍是异步执行状态的权威数据源
+//   - 更新一个窄仓库使跨服务耦合保持明确和局部化，直至后续引入专用 RPC 契约
 type WithdrawRepository struct {
 	db *sqlx.DB
 }
@@ -40,11 +37,10 @@ func (r *WithdrawRepository) FindByID(ctx context.Context, id int64) (*model.Wit
 	return &record, nil
 }
 
-// MarkSuccess persists the final txid and success state.
+// MarkSuccess 持久化最终的 txid 和成功状态。
 //
-// The update is guarded by the current status so duplicate Kafka deliveries or
-// manual back-office corrections do not overwrite a record that already moved
-// out of the processing state.
+// 更新操作受当前状态保护，因此重复的 Kafka 投递或人工后台更正
+// 不会覆盖已脱离处理状态的记录。
 func (r *WithdrawRepository) MarkSuccess(ctx context.Context, id int64, txID string, dealTime int64) (bool, error) {
 	result, err := r.db.ExecContext(
 		ctx,

@@ -1,19 +1,18 @@
 package types
 
-// RateRequest is the request payload for fiat-rate queries.
+// RateRequest 是法币汇率查询的请求参数结构。
 type RateRequest struct {
 	Unit string `path:"unit" json:"unit"`
 	IP   string `json:"ip,optional"`
 }
 
-// RateResponse keeps the original simple response shape for rate lookup.
+// RateResponse 保持汇率查询的原始简单响应结构。
 type RateResponse struct {
 	Rate float64 `json:"rate"`
 }
 
-// MarketReq is reused by the HTTP endpoints that proxy market queries to the
-// RPC layer. The field names intentionally stay aligned with the old API so the
-// frontend contract remains stable.
+// MarketReq 被代理市场查询到 RPC 层的 HTTP 端点复用。
+// 字段名有意与旧 API 保持一致，以确保前端契约稳定。
 type MarketReq struct {
 	IP         string `json:"ip,optional"`
 	Symbol     string `json:"symbol,optional" form:"symbol,optional" path:"symbol,optional"`
@@ -23,7 +22,7 @@ type MarketReq struct {
 	Resolution string `json:"resolution,optional" form:"resolution,optional"`
 }
 
-// CoinThumbResp is the public market snapshot model returned to web clients.
+// CoinThumbResp 是返回给 Web 客户端的公开市场快照模型。
 type CoinThumbResp struct {
 	Symbol       string    `json:"symbol"`
 	Open         float64   `json:"open"`
@@ -41,7 +40,7 @@ type CoinThumbResp struct {
 	Trend        []float64 `json:"trend,optional"`
 }
 
-// ExchangeCoinResp is the public model used for trading-pair metadata.
+// ExchangeCoinResp 是交易对元数据的公开模型。
 type ExchangeCoinResp struct {
 	ID                 int64   `json:"id"`
 	Symbol             string  `json:"symbol"`
@@ -78,7 +77,7 @@ type ExchangeCoinResp struct {
 	ExEngineStatus     int     `json:"exEngineStatus"`
 }
 
-// Coin is the public coin metadata model returned by the market API.
+// Coin 是 market API 返回的公开币种元数据模型。
 type Coin struct {
 	ID                int     `json:"id"`
 	Name              string  `json:"name"`
@@ -110,8 +109,8 @@ type Coin struct {
 	MinRechargeAmount float64 `json:"minRechargeAmount"`
 }
 
-// HistoryKline preserves the old API handler behavior where the response wraps
-// a raw list of OHLCV rows instead of an object with field names on every row.
+// HistoryKline 保持旧 API handler 的响应行为，
+// 响应包装原始的 OHLCV 数据列表，而非每行带字段名的对象。
 type HistoryKline struct {
 	List [][]any `json:"list"`
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/zeromicro/go-zero/rest"
 )
 
-// RegisterHandlers registers the HTTP routes exposed by market-api.
+// RegisterHandlers 注册 market-api 暴露的 HTTP 路由。
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{

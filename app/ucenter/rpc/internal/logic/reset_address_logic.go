@@ -40,8 +40,7 @@ func (l *ResetAddressLogic) ResetAddress(req *assetpb.AssetReq) (*assetpb.AssetR
 		}
 
 		wallet.Address = address
-		// The address now belongs to Bitcoin Core's wallet, so there is no local
-		// private key to persist in MySQL.
+		// 该地址现在属于 Bitcoin Core 的钱包，因此没有本地私钥需要持久化到 MySQL。
 		wallet.AddressPrivateKey = ""
 		if err := l.svcCtx.WalletService.UpdateAddress(l.ctx, wallet); err != nil {
 			return nil, err

@@ -1,4 +1,4 @@
-// Package httputil contains small helpers shared by HTTP-facing services.
+// Package httputil 包含 HTTP 面向服务共享的小型辅助工具。
 package httputil
 
 import (
@@ -7,13 +7,12 @@ import (
 	"strings"
 )
 
-// ClientIP resolves the caller IP from the request.
+// ClientIP 从请求中解析调用者 IP。
 //
-// Why this helper exists:
-//   - legacy handlers use the caller IP in downstream RPC requests
-//   - deployments may sit behind a reverse proxy
-//   - repeating the same resolution code in every handler would be noisy and
-//     easy to get wrong
+// 为什么需要这个辅助函数：
+//   - 传统处理器在下游 RPC 请求中使用调用者 IP
+//   - 部署可能位于反向代理之后
+//   - 在每个处理器中重复相同的解析代码会很冗余且容易出错
 func ClientIP(r *http.Request) string {
 	if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {
 		return normalizeLoopback(ip)

@@ -30,11 +30,10 @@ type TasksConfig struct {
 	Klines   []KlineTaskConfig
 }
 
-// Config describes the first migrated jobcenter runtime.
+// Config 描述首次迁移后的 jobcenter 运行时配置。
 //
-// The initial refactor phase focuses on Kafka withdraw consumption, but the
-// structure already reserves Mongo and Redis dependencies because later
-// jobcenter responsibilities will reuse the same process skeleton.
+// 初始重构阶段主要关注 Kafka 提现消费，但结构已预留 Mongo 和 Redis 依赖，
+// 因为后续 jobcenter 的其他职责将复用相同的进程骨架。
 type Config struct {
 	service.ServiceConf
 	Kafka        kafka.ConsumerConfig

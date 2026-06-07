@@ -4,11 +4,10 @@ import (
 	marketpb "mscoin_go/app/market/rpc/pb/market"
 )
 
-// Kline represents the MongoDB document used for time-series market candles.
+// Kline 表示用于时序市场 K 线数据的 MongoDB 文档。
 //
-// MongoDB remains a justified choice for this dataset because K-line history is
-// append-heavy, query-oriented by symbol/time range, and not part of the core
-// transactional state that must remain in MySQL.
+// MongoDB 对此数据集是一个合理的选择，因为 K 线历史是追加密集型、
+// 按币种/时间范围查询导向的，且不属于必须留在 MySQL 中的核心事务状态。
 type Kline struct {
 	Period       string  `bson:"period,omitempty"`
 	OpenPrice    float64 `bson:"openPrice,omitempty"`
@@ -21,15 +20,13 @@ type Kline struct {
 	Turnover     float64 `bson:"turnover,omitempty"`
 }
 
-// TableName derives the historical collection name used by the existing
-// project. This behavior must remain stable during migration or history reads
-// will silently drift to the wrong dataset.
+// TableName 推导现有项目使用的历史集合名称。
+// 此行为在迁移过程中必须保持稳定，否则历史读取会静默漂移到错误的数据集。
 func (k *Kline) TableName(symbol, period string) string {
 	return "exchange_kline_" + symbol + "_" + period
 }
 
-// ToCoinThumb converts the latest and earliest candles into the summary shape
-// expected by the market RPC layer.
+// ToCoinThumb 将最新和最早的 K 线转换为市场 RPC 层期望的摘要格式。
 func (k *Kline) ToCoinThumb(symbol string, oldest *Kline) *marketpb.CoinThumb {
 	change := k.ClosePrice - oldest.ClosePrice
 	chg := 0.0
@@ -51,8 +48,7 @@ func (k *Kline) ToCoinThumb(symbol string, oldest *Kline) *marketpb.CoinThumb {
 	}
 }
 
-// DefaultCoinThumb returns an empty response for pairs that do not currently
-// have readable K-line data.
+// DefaultCoinThumb 为当前没有可读 K 线数据的交易对返回空响应。
 func DefaultCoinThumb(symbol string) *marketpb.CoinThumb {
 	return &marketpb.CoinThumb{
 		Symbol: symbol,

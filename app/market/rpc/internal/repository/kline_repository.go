@@ -11,7 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// KlineRepository encapsulates MongoDB access for historical candle data.
+// KlineRepository 封装历史 K 线数据的 MongoDB 访问。
 type KlineRepository struct {
 	db *mongo.Database
 }
@@ -20,9 +20,8 @@ func NewKlineRepository(db *mongo.Database) *KlineRepository {
 	return &KlineRepository{db: db}
 }
 
-// FindBySymbolTime loads candles in a concrete time range. The `sortOrder`
-// contract intentionally matches the old service because market endpoints depend
-// on both ascending and descending reads for different calculations.
+// FindBySymbolTime 加载指定时间范围内的 K 线数据。
+// `sortOrder` 契约有意与旧服务匹配，因为市场接口对不同的计算同时依赖升序和降序读取。
 func (r *KlineRepository) FindBySymbolTime(
 	ctx context.Context,
 	symbol string,

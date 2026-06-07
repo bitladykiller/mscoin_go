@@ -1,4 +1,4 @@
-// Package redisx centralizes Redis client creation.
+// Package redisx 集中管理 Redis 客户端创建。
 package redisx
 
 import (
@@ -12,21 +12,20 @@ import (
 	goredis "github.com/go-redis/redis/v8"
 )
 
-// Config is the shared Redis configuration model used by the refactored
-// services. The project will keep all Redis initialization in one place so each
-// service only depends on a prebuilt client.
+// Config 是重构后服务使用的共享 Redis 配置模型。
+// 项目将所有 Redis 初始化集中在一个地方，以便每个服务只依赖于预构建的客户端。
 type Config struct {
 	Addrs    []string
 	Password string
 	DB       int
 }
 
-// Client wraps the raw go-redis universal client.
+// Client 包装原始的 go-redis 通用客户端。
 type Client struct {
 	raw goredis.UniversalClient
 }
 
-// New creates a shared Redis client.
+// New 创建一个共享的 Redis 客户端。
 func New(cfg Config) *Client {
 	return &Client{
 		raw: goredis.NewUniversalClient(&goredis.UniversalOptions{
@@ -37,23 +36,22 @@ func New(cfg Config) *Client {
 	}
 }
 
-// Raw returns the underlying go-redis client for advanced use cases.
+// Raw 返回底层的 go-redis 客户端，用于高级使用场景。
 func (c *Client) Raw() goredis.UniversalClient {
 	return c.raw
 }
 
-// Get returns a cached value using the default background context.
+// Get 使用默认后台上下文返回缓存的值。
 func (c *Client) Get(key string, value any) error {
 	return c.GetCtx(context.Background(), key, value)
 }
 
-// GetCtx loads a cached value and decodes it into the provided target.
+// GetCtx 加载缓存的值并将其解码到提供的目标中。
 //
-// Why this helper exists:
-//   - legacy MSCoin services store both raw strings and JSON documents in Redis
-//   - register and withdraw verification flows expect string reads
-//   - centralizing decode logic avoids reimplementing type switches in each
-//     service
+// 为什么需要这个辅助函数：
+//   - 传统 MSCoin 服务在 Redis 中同时存储原始字符串和 JSON 文档
+//   - 注册和提现验证流程期望读取字符串
+//   - 集中解码逻辑可以避免在每个服务中重复实现类型判断
 func (c *Client) GetCtx(ctx context.Context, key string, value any) error {
 	bytes, err := c.raw.Get(ctx, key).Bytes()
 	if err != nil {
@@ -62,23 +60,22 @@ func (c *Client) GetCtx(ctx context.Context, key string, value any) error {
 	return decode(bytes, value)
 }
 
-// Set writes a value without expiration using the default background context.
+// Set 使用默认后台上下文写入一个值，不设置过期时间。
 func (c *Client) Set(key string, value any) error {
 	return c.SetCtx(context.Background(), key, value)
 }
 
-// SetCtx writes a value without expiration.
+// SetCtx 写入一个值，不设置过期时间。
 func (c *Client) SetCtx(ctx context.Context, key string, value any) error {
 	return c.set(ctx, key, value, 0)
 }
 
-// SetWithExpireCtx writes a value with an explicit TTL.
+// SetWithExpireCtx 写入一个值并设置显式的 TTL。
 func (c *Client) SetWithExpireCtx(ctx context.Context, key string, value any, ttl time.Duration) error {
 	return c.set(ctx, key, value, ttl)
 }
 
-// SetJSON stores a value as JSON. This is intentionally explicit because most
-// project cache payloads are structured objects rather than raw strings.
+// SetJSON 将值存储为 JSON。这是故意显式的，因为大多数项目缓存负载是结构化对象而非原始字符串。
 func (c *Client) SetJSON(ctx context.Context, key string, value any, ttl time.Duration) error {
 	bytes, err := json.Marshal(value)
 	if err != nil {

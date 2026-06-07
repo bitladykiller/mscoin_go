@@ -11,7 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// ExchangeCoinRepository owns persistence access to visible trading-pair data.
+// ExchangeCoinRepository 持有可见交易对数据的持久化访问。
 type ExchangeCoinRepository struct {
 	db *sqlx.DB
 }

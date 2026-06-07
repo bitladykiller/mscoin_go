@@ -20,7 +20,7 @@ import (
 	"github.com/zeromicro/go-zero/zrpc"
 )
 
-// ServiceContext wires the jobcenter dependency graph.
+// ServiceContext 组装 jobcenter 的依赖图。
 type ServiceContext struct {
 	Config config.Config
 

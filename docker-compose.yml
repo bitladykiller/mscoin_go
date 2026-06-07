@@ -1,6 +1,23 @@
+# MSCoin-Go 容器编排配置
+#
+# 网络架构说明：
+# - mscoin-network：所有服务互联的桥接网络
+# - 容器间通过服务名通信，无需端口映射
+# - 仅对外暴露必要的 API 服务和管理界面
+#
+# 端口暴露策略：
+# - API 服务（对外）：market-api, ucenter-api, exchange-api
+# - 管理界面：kafdrop（Kafka 管理UI）
+# - 基础设施和 RPC 服务：不暴露，仅内部通信
+
 name: mscoin-go
 
 services:
+  # ============================================================================
+  # 基础设施层
+  # ============================================================================
+
+  # MySQL 数据库 - 存储 market、ucenter、exchange 业务数据
   mysql:
     image: mysql:8.4
     restart: unless-stopped
@@ -13,8 +30,7 @@ services:
       - --collation-server=utf8mb4_general_ci
       - --explicit_defaults_for_timestamp=true
       - --lower_case_table_names=1
-    ports:
-      - "3306:3306"
+    # 仅内部访问，不暴露端口
     volumes:
       - mysql-data:/var/lib/mysql
       - ./deploy/mysql/init:/docker-entrypoint-initdb.d:ro
@@ -26,12 +42,12 @@ services:
     networks:
       - mscoin-network
 
+  # Redis 缓存 - 验证码、汇率、最新价格缓存
   redis:
     image: redis:7.2
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "6379:6379"
+    # 仅内部访问，不暴露端口
     volumes:
       - redis-data:/data
     healthcheck:
@@ -42,6 +58,7 @@ services:
     networks:
       - mscoin-network
 
+  # Etcd 服务注册与发现 - go-zero RPC 服务发现
   etcd:
     image: bitnami/etcd:3.5
     restart: unless-stopped
@@ -49,8 +66,7 @@ services:
       ALLOW_NONE_AUTHENTICATION: "yes"
       ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
       ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
-    ports:
-      - "2379:2379"
+    # 仅内部访问，不暴露端口
     volumes:
       - etcd-data:/bitnami/etcd
     healthcheck:
@@ -61,6 +77,7 @@ services:
     networks:
       - mscoin-network
 
+  # MongoDB 文档数据库 - K线历史数据存储
   mongo:
     image: mongo:7.0
     restart: unless-stopped
@@ -68,8 +85,7 @@ services:
       TZ: Asia/Shanghai
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: root123456
-    ports:
-      - "27017:27017"
+    # 仅内部访问，不暴露端口
     volumes:
       - mongo-data:/data/db
     healthcheck:
@@ -84,20 +100,21 @@ services:
     networks:
       - mscoin-network
 
+  # Zookeeper - Kafka 依赖的协调服务
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
     restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
+    # 仅内部访问，不暴露端口
     volumes:
       - zookeeper-data:/var/lib/zookeeper/data
       - zookeeper-log:/var/lib/zookeeper/log
     networks:
       - mscoin-network
 
+  # Kafka 消息队列 - 提现事件、K线实时数据
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     restart: unless-stopped
@@ -115,8 +132,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    ports:
-      - "9092:9092"
+    # 仅内部访问，不暴露端口
     healthcheck:
       test:
         [
@@ -129,6 +145,7 @@ services:
     networks:
       - mscoin-network
 
+  # Kafdrop - Kafka 管理界面（可选，调试用）
   kafdrop:
     image: obsidiandynamics/kafdrop:4.0.2
     restart: unless-stopped
@@ -139,10 +156,11 @@ services:
       kafka:
         condition: service_healthy
     ports:
-      - "19000:9000"
+      - "19000:9000"  # 对外暴露管理界面
     networks:
       - mscoin-network
 
+  # Bitcoin Core - BTC 节点（测试网）
   bitcoin:
     image: bitcoin/bitcoin:27.0
     restart: unless-stopped
@@ -157,8 +175,7 @@ services:
       - -txindex=1
       - -fallbackfee=0.0002
       - -printtoconsole
-    ports:
-      - "18332:18332"
+    # 仅内部访问，不暴露端口
     volumes:
       - bitcoin-data:/home/bitcoin/.bitcoin
     healthcheck:
@@ -173,6 +190,7 @@ services:
     networks:
       - mscoin-network
 
+  # Bitcoin 钱包初始化 - 创建/加载 mscoin 钱包
   bitcoin-wallet-init:
     image: bitcoin/bitcoin:27.0
     restart: "no"
@@ -185,6 +203,11 @@ services:
     networks:
       - mscoin-network
 
+  # ============================================================================
+  # 业务服务层 - RPC 服务（内部）
+  # ============================================================================
+
+  # Market RPC - 币种、交易对、K线、汇率查询
   market-rpc:
     build:
       context: .
@@ -200,25 +223,11 @@ services:
         condition: service_healthy
       etcd:
         condition: service_healthy
-    ports:
-      - "8082:8082"
+    # RPC 服务仅内部访问，不暴露端口
     networks:
       - mscoin-network
 
-  market-api:
-    build:
-      context: .
-      dockerfile: app/market/api/Dockerfile
-    image: mscoin-go/market-api:local
-    restart: unless-stopped
-    depends_on:
-      market-rpc:
-        condition: service_started
-    ports:
-      - "8889:8889"
-    networks:
-      - mscoin-network
-
+  # Ucenter RPC - 用户、钱包、提现业务
   ucenter-rpc:
     build:
       context: .
@@ -238,27 +247,11 @@ services:
         condition: service_started
       bitcoin-wallet-init:
         condition: service_completed_successfully
-    ports:
-      - "8081:8081"
+    # RPC 服务仅内部访问，不暴露端口
     networks:
       - mscoin-network
 
-  ucenter-api:
-    build:
-      context: .
-      dockerfile: app/ucenter/api/Dockerfile
-    image: mscoin-go/ucenter-api:local
-    restart: unless-stopped
-    depends_on:
-      ucenter-rpc:
-        condition: service_started
-      market-rpc:
-        condition: service_started
-    ports:
-      - "8888:8888"
-    networks:
-      - mscoin-network
-
+  # Exchange RPC - 订单业务
   exchange-rpc:
     build:
       context: .
@@ -276,11 +269,47 @@ services:
         condition: service_started
       ucenter-rpc:
         condition: service_started
-    ports:
-      - "8083:8083"
+    # RPC 服务仅内部访问，不暴露端口
     networks:
       - mscoin-network
 
+  # ============================================================================
+  # 业务服务层 - API 服务（对外）
+  # ============================================================================
+
+  # Market API - 市场数据 HTTP 接口
+  market-api:
+    build:
+      context: .
+      dockerfile: app/market/api/Dockerfile
+    image: mscoin-go/market-api:local
+    restart: unless-stopped
+    depends_on:
+      market-rpc:
+        condition: service_started
+    ports:
+      - "8889:8889"  # 对外暴露 API 端口
+    networks:
+      - mscoin-network
+
+  # Ucenter API - 用户中心 HTTP 接口
+  ucenter-api:
+    build:
+      context: .
+      dockerfile: app/ucenter/api/Dockerfile
+    image: mscoin-go/ucenter-api:local
+    restart: unless-stopped
+    depends_on:
+      ucenter-rpc:
+        condition: service_started
+      market-rpc:
+        condition: service_started
+    ports:
+      - "8888:8888"  # 对外暴露 API 端口
+    networks:
+      - mscoin-network
+
+  # Exchange API - 交易 HTTP 接口
   exchange-api:
     build:
       context: .
@@ -291,10 +320,16 @@ services:
       exchange-rpc:
         condition: service_started
     ports:
-      - "8890:8890"
+      - "8890:8890"  # 对外暴露 API 端口
     networks:
       - mscoin-network
 
+  # ============================================================================
+  # 异步任务层
+  # ============================================================================
+
+  # Jobcenter - 异步任务处理中心
+  # 处理：提现执行、汇率同步、K线同步
   jobcenter:
     build:
       context: .
@@ -318,18 +353,28 @@ services:
         condition: service_started
       bitcoin-wallet-init:
         condition: service_completed_successfully
+    # 后台任务服务，无需暴露端口
     networks:
       - mscoin-network
+
+# ============================================================================
+# 网络配置
+# ============================================================================
 
 networks:
   mscoin-network:
     driver: bridge
+    name: mscoin-network  # 显式命名，便于其他容器连接
+
+# ============================================================================
+# 数据卷配置
+# ============================================================================
 
 volumes:
-  mysql-data:
-  redis-data:
-  etcd-data:
-  mongo-data:
-  zookeeper-data:
-  zookeeper-log:
-  bitcoin-data:
+  mysql-data:        # MySQL 数据持久化
+  redis-data:        # Redis 数据持久化
+  etcd-data:         # Etcd 数据持久化
+  mongo-data:        # MongoDB 数据持久化
+  zookeeper-data:    # Zookeeper 数据持久化
+  zookeeper-log:     # Zookeeper 日志持久化
+  bitcoin-data:      # Bitcoin 区块链数据持久化

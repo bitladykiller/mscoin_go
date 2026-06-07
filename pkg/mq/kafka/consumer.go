@@ -1,5 +1,4 @@
-// Package kafka centralizes Kafka producer and consumer construction for
-// refactored go-zero services.
+// Package kafka 为重构后的 go-zero 服务集中管理 Kafka 生产者和消费者的构建。
 package kafka
 
 import (
@@ -20,30 +19,24 @@ const (
 	defaultConsumerRetryBackoff = 2 * time.Second
 )
 
-// ConsumeAction describes how the consumer loop should handle one processing
-// result.
+// ConsumeAction 描述消费者循环应如何处理一个处理结果。
 //
-// Why the consumer loop uses explicit actions instead of only checking whether
-// an error exists:
-//   - async workflows must distinguish retryable failures from poison messages
-//   - dead-lettering should be a framework concern rather than duplicated in
-//     each business consumer
-//   - handlers stay focused on domain behavior while the queue layer owns
-//     offset commit policy
+// 为什么消费者循环使用显式动作而非仅检查错误是否存在：
+//   - 异步工作流必须区分可重试失败和毒消息
+//   - 死信应该是框架关注点，而非在每个业务消费者中重复
+//   - 处理器专注于领域行为，而队列层拥有 offset 提交策略
 type ConsumeAction int
 
 const (
-	// ConsumeAck commits the current offset immediately.
+	// ConsumeAck 立即提交当前 offset。
 	ConsumeAck ConsumeAction = iota
-	// ConsumeRetry keeps the offset uncommitted and retries the same message
-	// locally after a backoff delay.
+	// ConsumeRetry 保持 offset 未提交，在退避延迟后本地重试同一条消息。
 	ConsumeRetry
-	// ConsumeDeadLetter publishes the original message into the configured
-	// dead-letter topic and then commits the offset.
+	// ConsumeDeadLetter 将原始消息发布到配置的死信主题，然后提交 offset。
 	ConsumeDeadLetter
 )
 
-// Message is the queue-agnostic payload exposed to business handlers.
+// Message 是暴露给业务处理器的队列无关负载。
 type Message struct {
 	Topic     string
 	Key       []byte
@@ -54,17 +47,16 @@ type Message struct {
 	Time      time.Time
 }
 
-// Handler processes one Kafka message.
+// Handler 处理一条 Kafka 消息。
 type Handler func(ctx context.Context, message Message) error
 
-// ErrorClassifier converts a handler result into one queue action.
+// ErrorClassifier 将处理器结果转换为一种队列动作。
 type ErrorClassifier func(err error) ConsumeAction
 
-// ConsumerConfig contains the shared Kafka consumer settings.
+// ConsumerConfig 包含共享的 Kafka 消费者设置。
 //
-// The configuration intentionally keeps only the fields the migration is using
-// now. More Kafka tuning knobs can be added later from one place without
-// rewriting individual consumers.
+// 配置故意只保留迁移当前使用的字段。后续可以从一个地方添加更多 Kafka 调优参数，
+// 而无需重写各个消费者。
 type ConsumerConfig struct {
 	Brokers              []string
 	Topic                string
@@ -106,10 +98,10 @@ type deadLetterPayload struct {
 	FailedAt    time.Time         `json:"failedAt"`
 }
 
-// NewConsumerService creates a go-zero-compatible background consumer service.
+// NewConsumerService 创建一个兼容 go-zero 的后台消费者服务。
 //
-// The returned value implements `service.Service`, so callers can register it in
-// one `service.ServiceGroup` together with other workers and scheduled tasks.
+// 返回值实现 `service.Service`，因此调用者可以将它与其他 worker 和定时任务
+// 一起注册到一个 `service.ServiceGroup` 中。
 func NewConsumerService(cfg ConsumerConfig, handler Handler, classifier ErrorClassifier) (*consumerService, error) {
 	if len(cfg.Brokers) == 0 {
 		return nil, errors.New("kafka brokers are required")
@@ -166,7 +158,7 @@ func NewConsumerService(cfg ConsumerConfig, handler Handler, classifier ErrorCla
 	}, nil
 }
 
-// Start blocks and keeps consuming messages until Stop is called.
+// Start 阻塞并持续消费消息，直到调用 Stop。
 func (s *consumerService) Start() {
 	logx.Infof("starting kafka consumer, topic=%s group=%s", s.cfg.Topic, s.cfg.GroupID)
 
@@ -194,7 +186,7 @@ func (s *consumerService) Start() {
 	}
 }
 
-// Stop cancels the consume loop and closes underlying clients.
+// Stop 取消消费循环并关闭底层客户端。
 func (s *consumerService) Stop() {
 	if s.cancel != nil {
 		s.cancel()

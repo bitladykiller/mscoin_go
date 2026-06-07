@@ -19,7 +19,7 @@ const (
 	jsonRPCVersion          = "1.0"
 )
 
-// NodeConfig describes one Bitcoin Core JSON-RPC endpoint.
+// NodeConfig 描述一个 Bitcoin Core JSON-RPC 端点的配置。
 type NodeConfig struct {
 	URL              string
 	Username         string
@@ -30,26 +30,25 @@ type NodeConfig struct {
 	AddressType      string
 }
 
-// WithdrawSender abstracts one chain-specific withdraw broadcaster.
+// WithdrawSender 抽象一个链特定的提现广播器。
 //
-// Why jobcenter depends on this abstraction instead of on raw JSON-RPC calls:
-//   - the domain service should not know transport details such as JSON-RPC
-//     request shapes
-//   - unit tests can replace the sender with deterministic fakes
-//   - future ETH/TRON/etc. senders can follow the same orchestration contract
+// 为什么 jobcenter 依赖这个抽象而不是直接依赖原始 JSON-RPC 调用：
+//   - 领域服务不应该知道传输细节，例如 JSON-RPC 请求格式
+//   - 单元测试可以用确定性的 fake 替换 sender
+//   - 未来的 ETH/TRON 等 sender 可以遵循相同的编排契约
 type WithdrawSender interface {
 	Send(ctx context.Context, fromAddress string, toAddress string, totalAmount float64, arrivedAmount float64) (string, error)
 }
 
-// AddressAllocator abstracts wallet-managed address allocation.
+// AddressAllocator 抽象钱包管理的地址分配。
 //
-// Why a dedicated abstraction is required:
-//   - `ucenter` must create BTC addresses that belong to the same Bitcoin Core
-//     wallet later used by `jobcenter` to sign withdraw transactions
-//   - generating keypairs locally would split address ownership from signing
-//     responsibility and make `signrawtransactionwithwallet` fail at runtime
-//   - tests can replace the allocator with a deterministic fake without
-//     coupling business logic to JSON-RPC details
+// 为什么需要专门的抽象：
+//   - `ucenter` 必须创建属于同一个 Bitcoin Core 钱包的 BTC 地址，
+//     该钱包稍后被 `jobcenter` 用于签署提现交易
+//   - 本地生成密钥对会将地址所有权与签名责任分离，
+//     导致运行时 `signrawtransactionwithwallet` 失败
+//   - 测试可以用确定性的 fake 替换 allocator，
+//     而不将业务逻辑耦合到 JSON-RPC 细节
 type AddressAllocator interface {
 	Allocate(ctx context.Context, label string) (string, error)
 }
@@ -83,7 +82,7 @@ type jsonRPCClient struct {
 	client   *http.Client
 }
 
-// --- [JSON-RPC Models] --- //
+// --- [JSON-RPC 模型] --- //
 
 type rpcRequest struct {
 	ID      string `json:"id"`
@@ -103,7 +102,7 @@ type rpcError struct {
 	Message string `json:"message"`
 }
 
-// ListUnspentResult describes one spendable UTXO returned by Bitcoin Core.
+// ListUnspentResult 描述 Bitcoin Core 返回的一个可花费 UTXO。
 type ListUnspentResult struct {
 	Txid          string  `json:"txid"`
 	Vout          int     `json:"vout"`
@@ -112,20 +111,19 @@ type ListUnspentResult struct {
 	Confirmations int     `json:"confirmations"`
 }
 
-// Input matches the JSON-RPC shape required by `createrawtransaction`.
+// Input 匹配 `createrawtransaction` 所需的 JSON-RPC 格式。
 type Input struct {
 	Txid string `json:"txid"`
 	Vout int    `json:"vout"`
 }
 
-// SignRawTransactionWithWalletResult is the subset the migration needs from
-// Bitcoin Core's signing response.
+// SignRawTransactionWithWalletResult 是迁移所需的 Bitcoin Core 签名响应的子集。
 type SignRawTransactionWithWalletResult struct {
 	Hex      string `json:"hex"`
 	Complete bool   `json:"complete"`
 }
 
-// NewWithdrawSender builds the default BTC withdraw sender used by jobcenter.
+// NewWithdrawSender 构建 jobcenter 使用的默认 BTC 提现发送器。
 func NewWithdrawSender(cfg NodeConfig) (WithdrawSender, error) {
 	if err := validateNodeConfig(cfg); err != nil {
 		return nil, err
@@ -148,10 +146,10 @@ func NewWithdrawSender(cfg NodeConfig) (WithdrawSender, error) {
 	}, nil
 }
 
-// NewAddressAllocator builds a Bitcoin Core-backed address allocator.
+// NewAddressAllocator 构建一个基于 Bitcoin Core 的地址分配器。
 //
-// The current migration uses this in `ucenter` so newly reset BTC addresses are
-// created by the node wallet instead of being generated locally.
+// 当前迁移在 `ucenter` 中使用此功能，以便新重置的 BTC 地址由节点钱包创建，
+// 而不是在本地生成。
 func NewAddressAllocator(cfg NodeConfig) (AddressAllocator, error) {
 	if err := validateNodeConfig(cfg); err != nil {
 		return nil, err
@@ -173,14 +171,13 @@ func NewAddressAllocator(cfg NodeConfig) (AddressAllocator, error) {
 	}, nil
 }
 
-// --- [Withdraw Flow] --- //
+// --- [提现流程] --- //
 
-// Send selects enough UTXOs, constructs the BTC transaction, signs it with the
-// node wallet, and broadcasts it.
+// Send 选择足够的 UTXO，构造 BTC 交易，用节点钱包签名，然后广播它。
 //
-// The sender keeps the same value semantics as the legacy implementation:
-// `totalAmount` includes the miner fee already reserved at apply time, while
-// `arrivedAmount` is the amount transferred to the external destination.
+// Sender 保持与传统实现相同的值语义：
+// `totalAmount` 包含申请时已预留的矿工费，
+// `arrivedAmount` 是转移到外部目标地址的金额。
 func (s *sender) Send(ctx context.Context, fromAddress string, toAddress string, totalAmount float64, arrivedAmount float64) (string, error) {
 	if strings.TrimSpace(fromAddress) == "" {
 		return "", errors.New("source address is required")
@@ -284,12 +281,12 @@ func defaultAddressType(raw string) string {
 		return value
 	}
 
-	// `legacy` preserves the historical Base58-style BTC address shape used by
-	// the old MSCoin codebase while still delegating ownership to Bitcoin Core.
+	// `legacy` 保留旧 MSCoin 代码库使用的传统 Base58 格式 BTC 地址，
+	// 同时仍将所有权委托给 Bitcoin Core。
 	return "legacy"
 }
 
-// --- [JSON-RPC Calls] --- //
+// --- [JSON-RPC 调用] --- //
 
 func (c *jsonRPCClient) ListUnspent(ctx context.Context, min int, max int, addresses []string) ([]ListUnspentResult, error) {
 	var result []ListUnspentResult

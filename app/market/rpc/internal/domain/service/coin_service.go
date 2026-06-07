@@ -1,5 +1,4 @@
-// Package service contains business-oriented domain services for the market
-// module.
+// Package service 包含 market 模块面向业务的领域服务。
 package service
 
 import (
@@ -10,7 +9,7 @@ import (
 	"mscoin_go/app/market/rpc/internal/repository"
 )
 
-// CoinService owns coin-related business rules.
+// CoinService 持有币种相关的业务规则。
 type CoinService struct {
 	repo *repository.CoinRepository
 }

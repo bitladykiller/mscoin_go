@@ -16,52 +16,56 @@ import (
 	"mscoin_go/pkg/mq/kafka"
 )
 
+// withdrawCacheKey 提现验证码缓存键前缀
 const withdrawCacheKey = "WITHDRAW::"
 
+// withdrawMemberRepository 提现服务所需的会员仓储接口
 type withdrawMemberRepository interface {
 	FindByID(ctx context.Context, memberID int64) (*model.Member, error)
 }
 
+// withdrawWalletRepository 提现服务所需的钱包仓储接口
 type withdrawWalletRepository interface {
 	FindByMemberIDAndCoinName(ctx context.Context, memberID int64, coinName string) (*model.MemberWallet, error)
 	FindByMemberIDAndCoinNameForUpdate(ctx context.Context, exec mysqlx.ExtContext, memberID int64, coinName string) (*model.MemberWallet, error)
 	FreezeBalance(ctx context.Context, exec mysqlx.ExtContext, memberID int64, coinName string, amount float64) error
 }
 
+// withdrawAddressRepository 提现服务所需的地址仓储接口
 type withdrawAddressRepository interface {
 	FindByMemberIDAndCoinID(ctx context.Context, memberID int64, coinID int64) ([]*model.MemberAddress, error)
 }
 
+// withdrawRecordRepository 提现服务所需的记录仓储接口
 type withdrawRecordRepository interface {
 	FindByMemberID(ctx context.Context, memberID int64, page int64, pageSize int64) ([]*model.WithdrawRecord, int64, error)
 	Save(ctx context.Context, exec mysqlx.ExtContext, record *model.WithdrawRecord) error
 }
 
+// withdrawCache 提现服务所需的缓存接口
 type withdrawCache interface {
 	GetCtx(ctx context.Context, key string, value any) error
 	SetWithExpireCtx(ctx context.Context, key string, value any, ttl time.Duration) error
 }
 
-// WithdrawService groups the migrated read-side withdraw workflows.
+// WithdrawService 聚合了迁移后的提现读侧工作流。
 //
-// Why read flows are centralized here:
-//   - both gRPC handlers and future async workers need the same mapping rules
-//   - keeping market-coin enrichment out of repository code preserves clear
-//     layering between persistence and orchestration
-//   - Redis-backed verification code handling belongs to the domain service layer
-//     rather than transport adapters
-//   - write-side withdraw apply logic must also stay here so transaction
-//     orchestration, cache validation, and Kafka dispatch remain reusable
+// 读侧流程为何集中在此：
+//   - gRPC 处理器和未来的异步工作器需要相同的映射规则
+//   - 将市场币种丰富逻辑保持在仓储代码之外，以保持持久层与编排层之间的清晰分层
+//   - 基于 Redis 的验证码处理属于领域服务层，而非传输适配器
+//   - 写侧提现申请逻辑也必须保留在此，以便事务编排、缓存验证和 Kafka 派发保持可复用
 type WithdrawService struct {
-	memberRepo  withdrawMemberRepository
-	walletRepo  withdrawWalletRepository
-	addressRepo withdrawAddressRepository
-	recordRepo  withdrawRecordRepository
-	cache       withdrawCache
-	txManager   mysqlx.TxManager
-	queue       kafka.Producer
+	memberRepo  withdrawMemberRepository   // 会员仓储
+	walletRepo  withdrawWalletRepository   // 钱包仓储
+	addressRepo withdrawAddressRepository  // 地址仓储
+	recordRepo  withdrawRecordRepository   // 记录仓储
+	cache       withdrawCache              // 缓存客户端
+	txManager   mysqlx.TxManager           // 事务管理器
+	queue       kafka.Producer             // Kafka 生产者
 }
 
+// NewWithdrawService 创建提现服务实例
 func NewWithdrawService(
 	memberRepo withdrawMemberRepository,
 	walletRepo withdrawWalletRepository,
@@ -82,6 +86,7 @@ func NewWithdrawService(
 	}
 }
 
+// FindAddressByCoinID 根据币种 ID 查询会员提现地址
 func (s *WithdrawService) FindAddressByCoinID(ctx context.Context, memberID int64, coinID int64) ([]*withdrawpb.AddressSimple, error) {
 	list, err := s.addressRepo.FindByMemberIDAndCoinID(ctx, memberID, coinID)
 	if err != nil {
@@ -95,6 +100,7 @@ func (s *WithdrawService) FindAddressByCoinID(ctx context.Context, memberID int6
 	return resp, nil
 }
 
+// SendCode 发送提现验证码
 func (s *WithdrawService) SendCode(ctx context.Context, phone string) error {
 	if phone == "" {
 		return errors.New("phone is required")
@@ -110,17 +116,16 @@ func (s *WithdrawService) SendCode(ctx context.Context, phone string) error {
 	return nil
 }
 
-// Apply executes the write-side withdraw application workflow.
+// Apply 执行写侧提现申请工作流。
 //
-// Current migration strategy:
-//   - validate Redis verification code and transaction password first
-//   - lock the member wallet row inside one SQL transaction
-//   - freeze the requested balance and persist one withdraw record
-//   - publish the Kafka event before commit so message delivery failure still
-//     aborts the balance freeze in this migration phase
+// 当前迁移策略：
+//   - 首先验证 Redis 验证码和交易密码
+//   - 在一个 SQL 事务内锁定会员钱包行
+//   - 冻结请求的余额并持久化一条提现记录
+//   - 在提交前发布 Kafka 事件，以便在此迁移阶段消息投递失败仍能回滚余额冻结
 //
-// This mirrors the legacy atomic intent while the full outbox/consumer
-// refactor is still pending in `jobcenter`.
+// 这在完整的 outbox/consumer 重构仍在 `jobcenter` 中待完成时，
+// 保持了与旧版原子意图的一致性。
 func (s *WithdrawService) Apply(ctx context.Context, req *withdrawpb.WithdrawReq) error {
 	if req == nil {
 		return errors.New("withdraw request is required")
@@ -183,6 +188,7 @@ func (s *WithdrawService) Apply(ctx context.Context, req *withdrawpb.WithdrawReq
 	})
 }
 
+// FindRecordList 查询会员提现记录列表
 func (s *WithdrawService) FindRecordList(ctx context.Context, memberID int64, page int64, pageSize int64, findCoin func(context.Context, int64) (*marketpb.Coin, error)) ([]*withdrawpb.WithdrawRecord, int64, error) {
 	list, total, err := s.recordRepo.FindByMemberID(ctx, memberID, page, pageSize)
 	if err != nil {
@@ -204,6 +210,7 @@ func (s *WithdrawService) FindRecordList(ctx context.Context, memberID int64, pa
 	return resp, total, nil
 }
 
+// validateWithdrawApplyRequest 验证提现申请请求参数
 func validateWithdrawApplyRequest(req *withdrawpb.WithdrawReq) error {
 	if req.UserId <= 0 {
 		return errors.New("user id is required")

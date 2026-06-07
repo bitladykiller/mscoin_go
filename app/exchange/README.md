@@ -1,10 +1,10 @@
 # exchange
 
-This directory is reserved for the next migration phase.
+此目录保留用于下一阶段迁移。
 
-Planned submodules:
+计划的子模块：
 
-- `api/`
-- `rpc/`
+- `api/`   # HTTP 适配器
+- `rpc/`   # RPC 服务
 
-The HTTP and RPC contracts already exist under `idl/`.
+HTTP 和 RPC 契约已存在于 `idl/` 目录下。

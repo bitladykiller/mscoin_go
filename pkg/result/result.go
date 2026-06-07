@@ -1,52 +1,49 @@
-// Package result defines the uniform HTTP response envelope used by API
-// services. The old project returned the same JSON shape in many handlers, so
-// the refactor keeps that contract while moving the implementation to a single
-// shared package.
+// Package result 定义 API 服务使用的统一 HTTP 响应信封。
+// 旧项目在许多处理器中返回相同的 JSON 格式，因此重构保留该契约，
+// 同时将实现移至单个共享包。
 package result
 
-// Result is the standard API response body.
+// Result 是标准的 API 响应体。
 //
 // Code:
 //
-//	0   means success
-//	500 means generic business failure in the legacy behavior
+//	0   表示成功
+//	500 表示传统行为中的通用业务失败
 //
 // Message:
 //
-//	Human-readable status text for the caller.
+//	给调用者的人类可读状态文本。
 //
 // Data:
 //
-//	Arbitrary payload returned by the endpoint.
+//	端点返回的任意负载。
 type Result struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Data    any    `json:"data"`
 }
 
-// New creates an empty result object so handlers can consistently build a
-// legacy-compatible response body.
+// New 创建一个空的结果对象，以便处理器可以一致地构建传统兼容的响应体。
 func New() *Result {
 	return &Result{}
 }
 
-// Success marks the response as successful.
+// Success 将响应标记为成功。
 func (r *Result) Success(data any) {
 	r.Code = 0
 	r.Message = "success"
 	r.Data = data
 }
 
-// Fail marks the response as failed.
+// Fail 将响应标记为失败。
 func (r *Result) Fail(code int, message string) {
 	r.Code = code
 	r.Message = message
 	r.Data = nil
 }
 
-// Deal translates the common `(data, err)` pattern into the legacy MSCoin API
-// envelope. This keeps handlers small and ensures every endpoint returns a
-// consistent JSON contract.
+// Deal 将常见的 `(data, err)` 模式转换为传统 MSCoin API 信封。
+// 这保持处理器简洁，并确保每个端点返回一致的 JSON 契约。
 func (r *Result) Deal(data any, err error) *Result {
 	if err != nil {
 		r.Fail(500, err.Error())

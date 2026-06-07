@@ -16,8 +16,8 @@ const (
 
 const alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
-// Encode hashes a raw password using the same PBKDF2 settings as the legacy
-// MSCoin services and returns both the generated salt and the encoded hash.
+// Encode 使用与传统 MSCoin 服务相同的 PBKDF2 设置对原始密码进行哈希，
+// 并返回生成的盐和编码后的哈希值。
 func Encode(rawPwd string) (string, string) {
 	saltBytes := make([]byte, defaultSaltLen)
 	if _, err := rand.Read(saltBytes); err != nil {

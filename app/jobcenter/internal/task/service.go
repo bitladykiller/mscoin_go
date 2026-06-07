@@ -25,11 +25,10 @@ type intervalJob struct {
 	run      jobRunner
 }
 
-// Service manages all goroutine-based periodic tasks in `jobcenter`.
+// Service 管理 `jobcenter` 中所有基于 goroutine 的周期性任务。
 //
-// This service intentionally uses plain goroutines and `time.Ticker` because
-// the project only needs long-lived interval jobs, and the user explicitly
-// prefers a native Go concurrency model over an extra scheduler framework.
+// 该服务刻意使用原生 goroutine 和 `time.Ticker`，因为项目只需要
+// 长生命周期的间隔任务，且用户明确偏好 Go 原生并发模型而非额外调度框架。
 type Service struct {
 	ctx    context.Context
 	cancel context.CancelFunc

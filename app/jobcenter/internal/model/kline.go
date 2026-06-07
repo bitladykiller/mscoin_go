@@ -6,11 +6,10 @@ import (
 	"mscoin_go/pkg/okxx"
 )
 
-// Kline mirrors the MongoDB candle document shape read by `market-rpc`.
+// Kline 映射 MongoDB K 线文档结构，供 `market-rpc` 读取。
 //
-// The structure intentionally stays aligned with the market read model so
-// `jobcenter` can act as the writer and `market-rpc` can stay the reader
-// without any translation drift.
+// 该结构刻意与 market 读取模型保持一致，以便 `jobcenter` 作为写入方，
+// `market-rpc` 作为读取方，避免任何转换偏差。
 type Kline struct {
 	Period       string  `bson:"period,omitempty" json:"period"`
 	OpenPrice    float64 `bson:"openPrice,omitempty" json:"openPrice"`

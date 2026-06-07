@@ -20,11 +20,10 @@ func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic 
 }
 
 func (l *LoginLogic) Login(req *types.LoginReq) (*types.LoginRes, error) {
-	// Why guard here as well:
-	// - the HTTP handler already validates captcha presence for real requests
-	// - logic can still be reused directly by tests or future internal callers
-	// - keeping the invariant inside the logic layer prevents nil-pointer panics
-	//   from bypassing the transport adapter
+	// 为什么在这里也做防护：
+	// - HTTP handler 已经为真实请求验证了验证码的存在性
+	// - 但 logic 层仍可能被测试或未来的内部调用者直接复用
+	// - 在 logic 层保持不变性检查可以防止绕过传输层适配器导致的空指针异常
 	if req == nil || req.Captcha == nil {
 		return nil, errors.New("captcha verification failed")
 	}

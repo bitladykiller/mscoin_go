@@ -1,7 +1,6 @@
 package model
 
-// ExchangeCoin mirrors the `exchange_coin` table and captures the trading pair
-// configuration shown by market-facing endpoints.
+// ExchangeCoin 映射 `exchange_coin` 表，捕获面向市场的接口所展示的交易对配置。
 type ExchangeCoin struct {
 	ID               int64   `db:"id" gorm:"column:id"`
 	Symbol           string  `db:"symbol" gorm:"column:symbol"`

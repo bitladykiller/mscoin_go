@@ -7,9 +7,8 @@ import (
 	"mscoin_go/app/market/rpc/internal/svc"
 )
 
-// marketLogicBase collects the domain services used by the market RPC logic
-// files. This keeps each generated-style logic file small while still making
-// dependencies explicit.
+// marketLogicBase 聚合 market RPC logic 文件中使用的领域服务。
+// 这样既保持每个生成式 logic 文件精简，又使依赖关系显式化。
 type marketLogicBase struct {
 	ctx                 context.Context
 	svcCtx              *svc.ServiceContext

@@ -8,7 +8,7 @@ import (
 	"mscoin_go/app/market/rpc/internal/repository"
 )
 
-// ExchangeCoinService owns business rules around visible trading pairs.
+// ExchangeCoinService 持有可见交易对相关的业务规则。
 type ExchangeCoinService struct {
 	repo *repository.ExchangeCoinRepository
 }

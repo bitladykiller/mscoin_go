@@ -16,13 +16,12 @@ type rateCache interface {
 	GetCtx(ctx context.Context, key string, value any) error
 }
 
-// RateService owns exchange-rate lookup rules.
+// RateService 持有汇率查询规则。
 //
-// Why this service keeps fallback values even after Redis integration:
-//   - public rate endpoints should degrade gracefully when async sync tasks are
-//     temporarily behind
-//   - startup order should not make `market-rpc` unavailable
-//   - only the dynamically synchronized currencies need cache reads right now
+// 为什么该服务在集成 Redis 后仍保留回退值：
+//   - 公开汇率接口应在异步同步任务暂时滞后时优雅降级
+//   - 启动顺序不应导致 market-rpc 不可用
+//   - 目前只有动态同步的货币需要读取缓存
 type RateService struct {
 	cache     rateCache
 	fallbacks map[string]float64
@@ -47,8 +46,8 @@ func (s *RateService) USDRate(ctx context.Context, unit string) float64 {
 				return value
 			}
 		} else if err != nil && err != goredis.Nil {
-			// Cache errors intentionally fall back so `market-rpc` remains readable
-			// even when Redis is temporarily unavailable.
+			// 缓存错误有意回退，以便即使 Redis 暂时不可用，
+			// market-rpc 仍然可读。
 		}
 	}
 	return s.fallbacks[normalized]

@@ -8,7 +8,7 @@ import (
 	marketpb "mscoin_go/app/market/rpc/pb/market"
 )
 
-// MarketServer is the RPC facade for market-domain requests.
+// MarketServer 是市场领域请求的 RPC 门面。
 type MarketServer struct {
 	svcCtx *svc.ServiceContext
 	marketpb.UnimplementedMarketServer

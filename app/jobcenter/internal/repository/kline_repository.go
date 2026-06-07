@@ -11,7 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// KlineRepository owns MongoDB writes for asynchronously synchronized candles.
+// KlineRepository 负责 MongoDB 的异步 K 线写入操作。
 type KlineRepository struct {
 	db *mongo.Database
 }
@@ -20,15 +20,12 @@ func NewKlineRepository(db *mongo.Database) *KlineRepository {
 	return &KlineRepository{db: db}
 }
 
-// ReplaceBatch deletes the overlapping tail and inserts the refreshed batch.
+// ReplaceBatch 删除重叠的尾部数据并插入刷新后的批次数据。
 //
-// Why the repository rewrites the tail instead of trying to upsert row by row:
-//   - OKX returns the most recent window on each request, so tail overlap is
-//     expected
-//   - batch delete + insert keeps the logic compact and close to the old
-//     service behavior
-//   - the collection is append-heavy and not part of the core transactional
-//     state, so this rewrite approach is acceptable here
+// 为什么仓库采用重写尾部而非逐行 upsert 的方式：
+//   - OKX 每次请求返回最近时间窗口的数据，因此尾部重叠是预期行为
+//   - 批量删除 + 插入保持逻辑紧凑，接近旧服务行为
+//   - 该集合以追加为主，不属于核心事务状态，因此此重写方式可接受
 func (r *KlineRepository) ReplaceBatch(ctx context.Context, symbol string, period string, list []*model.Kline) error {
 	if r == nil || r.db == nil {
 		return errors.New("mongo database is not initialized")

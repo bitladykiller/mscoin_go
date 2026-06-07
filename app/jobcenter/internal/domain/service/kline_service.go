@@ -27,13 +27,12 @@ type priceCache interface {
 	SetCtx(ctx context.Context, key string, value any) error
 }
 
-// KlineSyncService owns the asynchronous market-candle synchronization flow.
+// KlineSyncService 负责异步市场 K 线同步流程。
 //
-// Why jobcenter performs this write-side work:
-//   - K-line synchronization is periodic and external-API-driven
-//   - MongoDB candle persistence is append/refresh oriented, not request scoped
-//   - `market-rpc` should stay focused on query behavior, while `jobcenter`
-//     handles background data acquisition
+// 为什么由 jobcenter 执行此写入端工作：
+//   - K 线同步是周期性的、外部 API 驱动的任务
+//   - MongoDB K 线持久化是追加/刷新导向的，非请求范围
+//   - `market-rpc` 应专注于查询行为，而 `jobcenter` 负责后台数据获取
 type KlineSyncService struct {
 	marketClient visibleExchangeCoinFinder
 	okxClient    okxx.Client

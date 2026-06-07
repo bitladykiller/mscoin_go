@@ -8,7 +8,7 @@ import (
 	"github.com/zeromicro/go-zero/zrpc"
 )
 
-// ServiceContext wires HTTP handlers to the RPC clients they depend on.
+// ServiceContext 将 HTTP handler 与其依赖的 RPC 客户端进行连接和装配。
 type ServiceContext struct {
 	Config       config.Config
 	MarketClient marketpb.MarketClient

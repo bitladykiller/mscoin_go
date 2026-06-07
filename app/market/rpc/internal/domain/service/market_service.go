@@ -9,8 +9,8 @@ import (
 	marketpb "mscoin_go/app/market/rpc/pb/market"
 )
 
-// MarketService coordinates read-heavy market business flows that combine
-// trading-pair metadata with historical K-line data.
+// MarketService 协调读密集型的市场业务流程，
+// 结合交易对元数据和历史 K 线数据。
 type MarketService struct {
 	klineRepo           *repository.KlineRepository
 	exchangeCoinService *ExchangeCoinService
@@ -26,10 +26,9 @@ func NewMarketService(
 	}
 }
 
-// SymbolThumbTrend calculates the current snapshot list for every visible
-// trading pair. The method intentionally preserves the old behavior where
-// missing K-line data falls back to an empty thumb instead of failing the whole
-// request.
+// SymbolThumbTrend 计算每个可见交易对的当前快照列表。
+// 该方法有意保留旧项目的行为：当 K 线数据缺失时，
+// 回退为空的缩略图而不是让整个请求失败。
 func (s *MarketService) SymbolThumbTrend(ctx context.Context) ([]*marketpb.CoinThumb, error) {
 	coins, err := s.exchangeCoinService.FindVisible(ctx)
 	if err != nil {
@@ -53,8 +52,7 @@ func (s *MarketService) SymbolThumbTrend(ctx context.Context) ([]*marketpb.CoinT
 	return thumbs, nil
 }
 
-// HistoryKline returns candle rows in the exact transport shape expected by the
-// market RPC contract.
+// HistoryKline 返回市场 RPC 契约所期望的精确传输格式的 K 线数据。
 func (s *MarketService) HistoryKline(
 	ctx context.Context,
 	symbol string,

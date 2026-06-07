@@ -1,4 +1,4 @@
-// Package auth contains authentication helpers shared across API services.
+// Package auth 包含 API 服务间共享的身份验证辅助工具。
 package auth
 
 import (
@@ -9,10 +9,9 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-// GenerateUserToken creates the legacy JWT used by MSCoin APIs.
+// GenerateUserToken 创建 MSCoin API 使用的传统 JWT。
 //
-// The token intentionally keeps the historical claim names so all API
-// middleware and existing clients remain compatible during the migration.
+// Token 特意保留历史 claim 名称，以便在迁移期间所有 API 中间件和现有客户端保持兼容。
 func GenerateUserToken(secret string, issuedAt time.Time, expireSeconds int64, userID int64) (string, error) {
 	claims := jwt.MapClaims{
 		"exp":    issuedAt.Unix() + expireSeconds,
@@ -25,12 +24,12 @@ func GenerateUserToken(secret string, issuedAt time.Time, expireSeconds int64, u
 	return token.SignedString([]byte(secret))
 }
 
-// ParseUserID extracts the legacy `userId` claim from a JWT token.
+// ParseUserID 从 JWT token 中提取传统的 `userId` claim。
 //
-// Why this helper exists:
-// - the old project stores login state in `x-auth-token`
-// - multiple API services need the same claim-parsing behavior
-// - centralizing token parsing avoids subtle drift across services
+// 为什么需要这个辅助函数：
+// - 旧项目将登录状态存储在 `x-auth-token` 中
+// - 多个 API 服务需要相同的 claim 解析行为
+// - 集中 token 解析可以避免各服务之间出现微妙的偏差
 func ParseUserID(tokenString string, secret string) (int64, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {

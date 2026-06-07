@@ -1,12 +1,10 @@
-// Package model stores the persistence models owned by the market domain.
+// Package model 存储 market 领域的持久化模型。
 package model
 
-// Coin mirrors the `coin` table.
+// Coin 映射 `coin` 表。
 //
-// The field names intentionally stay close to the existing schema because this
-// refactor targets behavior compatibility first. The detailed tags are useful
-// both for `sqlx` mapping and for making the source schema readable when
-// business logic depends on specific columns.
+// 字段名有意保持与现有模式接近，因为此次重构以行为兼容性为首要目标。
+// 详细的标签对 `sqlx` 映射和当业务逻辑依赖特定列时使源模式可读都很有用。
 type Coin struct {
 	ID                int     `db:"id" gorm:"column:id"`
 	Name              string  `db:"name" gorm:"column:name"`

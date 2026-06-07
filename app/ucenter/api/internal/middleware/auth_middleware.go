@@ -50,12 +50,12 @@ func UserIDFromContext(ctx context.Context) int64 {
 	return value
 }
 
-// WithUserID injects the authenticated user id into a context.
+// WithUserID 将已认证的用户 ID 注入到 context 中。
 //
-// Why this helper exists:
-// - API logic reads user identity from context after JWT middleware runs
-// - tests and internal adapters sometimes need to construct that context
-// - exporting the setter avoids duplicating the private key definition
+// 为什么需要这个辅助函数：
+// - API logic 在 JWT 中间件运行后从 context 读取用户身份
+// - 测试和内部适配器有时需要构造该 context
+// - 导出 setter 可以避免重复定义私有 key
 func WithUserID(ctx context.Context, userID int64) context.Context {
 	return context.WithValue(ctx, userIDKey, userID)
 }

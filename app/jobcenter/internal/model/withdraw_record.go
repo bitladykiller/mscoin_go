@@ -1,7 +1,7 @@
 package model
 
-// Withdraw status codes keep the legacy database semantics intact so async
-// workers can cooperate with existing admin pages and history queries.
+// Withdraw 提现状态码，保持与原有数据库语义一致，
+// 以便异步工作者能与现有管理页面和历史查询协同工作。
 const (
 	WithdrawStatusProcessing int32 = iota
 	WithdrawStatusWaiting
@@ -9,8 +9,8 @@ const (
 	WithdrawStatusSuccess
 )
 
-// WithdrawRecord mirrors the `withdraw_record` table row that jobcenter updates
-// after chain execution.
+// WithdrawRecord 映射 `withdraw_record` 表的行数据，
+// jobcenter 在链上执行后更新此记录。
 type WithdrawRecord struct {
 	Id                int64   `db:"id" gorm:"column:id"`
 	MemberId          int64   `db:"member_id" gorm:"column:member_id"`
@@ -28,10 +28,10 @@ type WithdrawRecord struct {
 	DealTime          int64   `db:"deal_time" gorm:"column:deal_time"`
 }
 
-// WithdrawRecordEvent is the current Kafka payload emitted by `ucenter-rpc`.
+// WithdrawRecordEvent 是 `ucenter-rpc` 发出的当前 Kafka 消息载荷。
 //
-// The JSON tags intentionally match Go field names because the current producer
-// serializes the persistence struct directly without lowercase `json` tags.
+// JSON 标签刻意与 Go 字段名保持一致，因为当前生产者直接序列化
+// 持久化结构体，未使用小写的 `json` 标签。
 type WithdrawRecordEvent struct {
 	Id                int64   `json:"Id"`
 	MemberId          int64   `json:"MemberId"`

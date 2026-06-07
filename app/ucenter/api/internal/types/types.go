@@ -140,9 +140,8 @@ type MemberSecurity struct {
 	AccountVerified      string `json:"accountVerified"`
 }
 
-// WithdrawReq keeps the legacy withdraw form payload intact so the refactored
-// API can continue serving the existing frontend contract without requiring any
-// request-shape changes on the caller side.
+// WithdrawReq 保持遗留提现表单负载的完整性，以便重构后的 API
+// 能够继续服务现有的前端契约，而无需调用方做任何请求格式的变更。
 type WithdrawReq struct {
 	Unit       string  `json:"unit,optional" form:"unit,optional"`
 	Address    string  `json:"address,optional" form:"address,optional"`
@@ -154,16 +153,15 @@ type WithdrawReq struct {
 	PageSize   int     `json:"pageSize,optional" form:"pageSize,optional"`
 }
 
-// AddressSimple mirrors the legacy address-book projection returned to the
-// withdraw page.
+// AddressSimple 映射提现页面返回的遗留地址簿投影数据。
 type AddressSimple struct {
 	Remark  string `json:"remark"`
 	Address string `json:"address"`
 }
 
-// WithdrawWalletInfo is the aggregated view required by the legacy withdraw UI.
-// It combines market metadata, member wallet balance, and saved address book
-// entries into one response object.
+// WithdrawWalletInfo 是遗留提现 UI 所需的聚合视图。
+// 它将市场元数据、会员钱包余额和已保存的地址簿条目
+// 合并为一个响应对象。
 type WithdrawWalletInfo struct {
 	Unit            string          `json:"unit"`
 	Threshold       float64         `json:"threshold"`
@@ -180,8 +178,8 @@ type WithdrawWalletInfo struct {
 	Addresses       []AddressSimple `json:"addresses"`
 }
 
-// WithdrawRecord mirrors the historical withdraw detail envelope returned to
-// clients so pagination screens remain backwards compatible.
+// WithdrawRecord 映射返回给客户端的历史提现详情数据结构，
+// 以保持分页界面的向后兼容性。
 type WithdrawRecord struct {
 	Id                int64   `json:"id"`
 	MemberId          int64   `json:"memberId"`

@@ -11,14 +11,18 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// MemberRepository 会员仓储
+// 负责会员数据的持久化操作
 type MemberRepository struct {
 	db *sqlx.DB
 }
 
+// NewMemberRepository 创建会员仓储实例
 func NewMemberRepository(db *sqlx.DB) *MemberRepository {
 	return &MemberRepository{db: db}
 }
 
+// FindByPhone 根据手机号查询会员
 func (r *MemberRepository) FindByPhone(ctx context.Context, phone string) (*model.Member, error) {
 	var member model.Member
 	err := r.db.GetContext(ctx, &member, "SELECT * FROM member WHERE mobile_phone=? LIMIT 1", phone)
@@ -31,6 +35,7 @@ func (r *MemberRepository) FindByPhone(ctx context.Context, phone string) (*mode
 	return &member, nil
 }
 
+// FindByID 根据会员 ID 查询会员
 func (r *MemberRepository) FindByID(ctx context.Context, memberID int64) (*model.Member, error) {
 	var member model.Member
 	err := r.db.GetContext(ctx, &member, "SELECT * FROM member WHERE id=? LIMIT 1", memberID)
@@ -43,6 +48,7 @@ func (r *MemberRepository) FindByID(ctx context.Context, memberID int64) (*model
 	return &member, nil
 }
 
+// UpdateLoginCount 更新会员登录次数
 func (r *MemberRepository) UpdateLoginCount(ctx context.Context, id int64, step int) error {
 	if _, err := r.db.ExecContext(ctx, "UPDATE member SET login_count = login_count + ? WHERE id = ?", step, id); err != nil {
 		return fmt.Errorf("update member login count: %w", err)
@@ -50,6 +56,7 @@ func (r *MemberRepository) UpdateLoginCount(ctx context.Context, id int64, step 
 	return nil
 }
 
+// Save 保存会员记录
 func (r *MemberRepository) Save(ctx context.Context, member *model.Member) error {
 	if member == nil {
 		return errors.New("member is nil")
@@ -73,11 +80,11 @@ INSERT INTO member (
 	?, ?, ?, ?, ?, ?, ?, ?, ?,
 	?, ?, ?, ?, ?, ?, ?,
 	?, ?, ?, ?, ?, ?, ?, ?,
-	?, ?, ?, ?, ?, ?, ?, ?,
-	?, ?, ?, ?, ?, ?, ?, ?,
+	?, ?, ?, ?, ?, ?, ?,
+	?, ?, ?, ?, ?, ?, ?,
 	?
 )`
-
+	// 保存会员的所有字段到数据库
 	_, err := r.db.ExecContext(
 		ctx,
 		query,

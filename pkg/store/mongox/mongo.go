@@ -1,4 +1,4 @@
-// Package mongox centralizes MongoDB initialization and lifecycle management.
+// Package mongox 集中管理 MongoDB 初始化和生命周期管理。
 package mongox
 
 import (
@@ -10,8 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Config describes the MongoDB connection used by services that need timeseries
-// or weakly structured storage.
+// Config 描述需要时间序列或弱结构化存储的服务所使用的 MongoDB 连接配置。
 type Config struct {
 	URI      string
 	Username string
@@ -19,14 +18,14 @@ type Config struct {
 	Database string
 }
 
-// Client keeps both the raw client and the selected default database.
+// Client 同时保留原始客户端和选择的默认数据库。
 type Client struct {
 	raw *mongo.Client
 	db  *mongo.Database
 }
 
-// New creates a Mongo client and validates the connection immediately so
-// services fail fast during startup instead of failing on the first request.
+// New 创建一个 Mongo 客户端并立即验证连接，
+// 以便服务在启动期间快速失败，而不是在第一个请求时失败。
 func New(cfg Config) (*Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -53,12 +52,12 @@ func New(cfg Config) (*Client, error) {
 	}, nil
 }
 
-// Database returns the default database configured for the service.
+// Database 返回为服务配置的默认数据库。
 func (c *Client) Database() *mongo.Database {
 	return c.db
 }
 
-// Disconnect closes the Mongo client gracefully.
+// Disconnect 优雅地关闭 Mongo 客户端。
 func (c *Client) Disconnect(ctx context.Context) error {
 	return c.raw.Disconnect(ctx)
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/zeromicro/go-zero/rest"
 )
 
-var configFile = flag.String("f", "etc/market-api.yaml", "the config file")
+var configFile = flag.String("f", "etc/market-api.yaml", "配置文件路径")
 
 func main() {
 	flag.Parse()

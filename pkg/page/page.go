@@ -1,10 +1,9 @@
-// Package page keeps the HTTP-facing pagination response compatible with the
-// legacy MSCoin frontend contract.
+// Package page 保持 HTTP 面向的分页响应与传统 MSCoin 前端契约兼容。
 package page
 
 import "math"
 
-// Result is the public JSON pagination model returned by list endpoints.
+// Result 是列表端点返回的公共 JSON 分页模型。
 type Result struct {
 	Content       []any `json:"content"`
 	TotalElements int64 `json:"totalElements"`
@@ -14,7 +13,7 @@ type Result struct {
 	IsLast        bool  `json:"isLast"`
 }
 
-// New constructs a pagination envelope from raw items and total count.
+// New 从原始项目和总数构造分页信封。
 func New(content []any, page int64, pageSize int64, total int64) *Result {
 	resp := &Result{
 		Content:       content,

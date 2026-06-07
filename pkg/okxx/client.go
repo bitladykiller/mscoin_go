@@ -1,5 +1,4 @@
-// Package okxx centralizes the minimal OKX market-data integration used by the
-// refactored MSCoin services.
+// Package okxx 集中管理重构后 MSCoin 服务使用的最小 OKX 市场数据集成。
 package okxx
 
 import (
@@ -23,13 +22,12 @@ const (
 	candlesPath      = "/api/v5/market/candles"
 )
 
-// Config contains the OKX endpoint and optional credentials.
+// Config 包含 OKX 端点和可选的凭据。
 //
-// Why credentials are optional in this wrapper:
-//   - the market-data endpoints used by the current migration are public
-//   - local development should still run without provisioning exchange secrets
-//   - if a deployment does provide credentials, we can preserve the legacy
-//     signed-header behavior without changing task-layer code
+// 为什么凭据在这个包装器中是可选的：
+//   - 当前迁移使用的市场数据端点是公开的
+//   - 本地开发应该能够在不配置交易所密钥的情况下运行
+//   - 如果部署确实提供了凭据，我们可以保留传统的签名头行为，而无需更改任务层代码
 type Config struct {
 	APIKey     string
 	SecretKey  string
@@ -39,13 +37,12 @@ type Config struct {
 	TimeoutMs  int
 }
 
-// ExchangeRate contains the USD/CNY quote needed by market-facing rate APIs.
+// ExchangeRate 包含面向市场的汇率 API 所需的 USD/CNY 报价。
 type ExchangeRate struct {
 	USDCNY float64
 }
 
-// Candle captures one OKX K-line row in the normalized format the refactored
-// services use internally.
+// Candle 以重构后服务内部使用的规范化格式捕获一条 OKX K 线数据。
 type Candle struct {
 	Time         int64
 	OpenPrice    float64
@@ -57,7 +54,7 @@ type Candle struct {
 	Turnover     float64
 }
 
-// Client is the interface jobcenter depends on for external market data.
+// Client 是 jobcenter 依赖的外部市场数据接口。
 type Client interface {
 	FetchExchangeRate(ctx context.Context) (*ExchangeRate, error)
 	FetchCandles(ctx context.Context, instID string, bar string) ([]*Candle, error)
@@ -84,7 +81,7 @@ type candlesResponse struct {
 	Data [][]string `json:"data"`
 }
 
-// NewClient builds one reusable OKX client.
+// NewClient 构建一个可复用的 OKX 客户端。
 func NewClient(cfg Config) (Client, error) {
 	if strings.TrimSpace(cfg.Host) == "" {
 		return nil, errors.New("okx host is required")

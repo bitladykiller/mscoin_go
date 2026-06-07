@@ -39,25 +39,20 @@ type txCache interface {
 	SetWithExpireCtx(ctx context.Context, key string, value any, ttl time.Duration) error
 }
 
-// WithdrawTxCacheEntry is the recovery payload written after the chain node
-// returns a txid but before MySQL is fully updated.
+// WithdrawTxCacheEntry 是在链节点返回 txid 之后、MySQL 完全更新之前写入的恢复数据。
 //
-// Why this cache exists:
-//   - broadcasting the on-chain transaction and updating MySQL are not one
-//     atomic operation
-//   - if MySQL update fails after the transaction has been sent, the next retry
-//     must reuse the known txid instead of sending funds twice
-//   - Redis gives jobcenter a lightweight recovery checkpoint without dragging
-//     more schema changes into this migration stage
+// 为什么需要此缓存：
+//   - 广播链上交易和更新 MySQL 不是原子操作
+//   - 如果交易已发送但 MySQL 更新失败，下次重试必须复用已知 txid，而非重复发送资金
+//   - Redis 为 jobcenter 提供轻量级恢复检查点，无需在此迁移阶段引入更多数据库变更
 type WithdrawTxCacheEntry struct {
 	TxID     string `json:"txId"`
 	DealTime int64  `json:"dealTime"`
 }
 
-// NonRetryableError marks one poison-message style failure.
+// NonRetryableError 标记一种不可重试的毒消息类型错误。
 //
-// The Kafka consumer turns this error into a dead-letter or acknowledge action
-// instead of an infinite retry loop.
+// Kafka 消费者将此错误转换为死信或确认操作，而非无限重试循环。
 type NonRetryableError struct {
 	cause error
 }
@@ -82,7 +77,7 @@ func IsNonRetryable(err error) bool {
 	return errors.As(err, &target)
 }
 
-// WithdrawService owns the first migrated async withdraw execution workflow.
+// WithdrawService 负责首个迁移的异步提现执行工作流。
 type WithdrawService struct {
 	repo        withdrawRepository
 	market      marketCoinFinder
@@ -107,9 +102,9 @@ func NewWithdrawService(
 	}
 }
 
-// --- [Processing Flow] --- //
+// --- [处理流程] --- //
 
-// ProcessApplied handles one persisted withdraw event emitted by `ucenter-rpc`.
+// ProcessApplied 处理由 `ucenter-rpc` 发出的已持久化提现事件。
 func (s *WithdrawService) ProcessApplied(ctx context.Context, event *model.WithdrawRecordEvent) error {
 	if event == nil {
 		return NewNonRetryableError(errors.New("withdraw event is required"))
@@ -132,9 +127,8 @@ func (s *WithdrawService) ProcessApplied(ctx context.Context, event *model.Withd
 		return err
 	}
 	if record == nil {
-		// The producer currently publishes the Kafka event before committing the
-		// surrounding SQL transaction. A short retry window is therefore required
-		// so jobcenter can see the row once the commit becomes visible.
+		// 生产者目前在提交外层 SQL 事务之前发布 Kafka 事件。
+		// 因此需要短暂的等待窗口，让 jobcenter 在提交可见后能看到该行记录。
 		return fmt.Errorf("withdraw record %d is not committed yet", event.Id)
 	}
 	if record.Status == model.WithdrawStatusSuccess {

@@ -13,11 +13,10 @@ import (
 	coreservice "github.com/zeromicro/go-zero/core/service"
 )
 
-// NewWithdrawConsumer creates the first migrated Kafka worker in jobcenter.
+// NewWithdrawConsumer 创建 jobcenter 中首个迁移的 Kafka 消费者。
 //
-// The consumer only adapts queue payloads into domain service calls. All real
-// business rules stay in the domain layer so the same workflow remains testable
-// without Kafka.
+// 该消费者仅负责将队列消息适配为领域服务调用。所有真正的业务规则
+// 保留在领域层，这样相同的工作流无需 Kafka 即可进行测试。
 func NewWithdrawConsumer(svcCtx *svc.ServiceContext) (coreservice.Service, error) {
 	return kafka.NewConsumerService(
 		svcCtx.Config.Kafka,

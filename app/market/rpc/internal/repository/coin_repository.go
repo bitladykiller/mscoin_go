@@ -1,5 +1,4 @@
-// Package repository contains persistence implementations for the market RPC
-// service.
+// Package repository 包含 market RPC 服务的持久化实现。
 package repository
 
 import (
@@ -13,7 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// CoinRepository encapsulates all direct SQL access to the `coin` table.
+// CoinRepository 封装所有对 `coin` 表的直接 SQL 访问。
 type CoinRepository struct {
 	db *sqlx.DB
 }

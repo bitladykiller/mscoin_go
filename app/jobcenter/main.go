@@ -13,7 +13,7 @@ import (
 	"github.com/zeromicro/go-zero/core/service"
 )
 
-var configFile = flag.String("f", "etc/jobcenter.yaml", "the config file")
+var configFile = flag.String("f", "etc/jobcenter.yaml", "配置文件路径")
 
 func main() {
 	flag.Parse()

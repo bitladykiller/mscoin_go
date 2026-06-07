@@ -1,4 +1,4 @@
-// Package mysqlx centralizes MySQL initialization for all services.
+// Package mysqlx 集中管理所有服务的 MySQL 初始化。
 package mysqlx
 
 import (
@@ -14,7 +14,7 @@ import (
 
 var mapperOnce sync.Once
 
-// Config captures the shared MySQL connection settings used across services.
+// Config 捕获服务间共享的 MySQL 连接设置。
 type Config struct {
 	DataSource      string
 	MaxOpenConns    int
@@ -23,11 +23,10 @@ type Config struct {
 	ConnMaxIdleTime int64
 }
 
-// New opens a MySQL connection and standardizes struct-field mapping.
+// New 打开 MySQL 连接并标准化结构体字段映射。
 //
-// The refactor keeps explicit SQL via `sqlx`, but also preserves convenient
-// field mapping for legacy structs that still carry historical `gorm:"column:"`
-// tags.
+// 重构保留了通过 `sqlx` 使用显式 SQL 的方式，但也保留了便捷的字段映射，
+// 以便遗留结构体继续携带历史的 `gorm:"column:"` 标签。
 func New(cfg Config) (*sqlx.DB, error) {
 	db, err := sqlx.Open("mysql", cfg.DataSource)
 	if err != nil {

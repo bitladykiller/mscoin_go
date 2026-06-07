@@ -7,14 +7,19 @@ import (
 	assetpb "mscoin_go/app/ucenter/rpc/pb/asset"
 )
 
+// TransactionService 交易服务
+// 负责会员交易记录查询等业务逻辑
 type TransactionService struct {
-	repo *repository.TransactionRepository
+	repo *repository.TransactionRepository // 交易仓储
 }
 
+// NewTransactionService 创建交易服务实例
 func NewTransactionService(repo *repository.TransactionRepository) *TransactionService {
 	return &TransactionService{repo: repo}
 }
 
+// FindTransaction 查询会员交易记录
+// 支持按币种、时间范围、交易类型筛选，支持分页
 func (s *TransactionService) FindTransaction(
 	ctx context.Context,
 	memberID int64,

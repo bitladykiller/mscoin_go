@@ -8,7 +8,7 @@ import (
 	ratepb "mscoin_go/app/market/rpc/pb/rate"
 )
 
-// ExchangeRateServer is the RPC facade for fiat conversion lookup.
+// ExchangeRateServer 是法币汇率查询的 RPC 门面。
 type ExchangeRateServer struct {
 	svcCtx *svc.ServiceContext
 	ratepb.UnimplementedExchangeRateServer

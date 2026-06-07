@@ -1,47 +1,167 @@
 # MSCoin-Go 容器编排配置
 #
-# 网络架构说明：
-# - mscoin-network：所有服务互联的桥接网络
-# - 容器间通过服务名通信，无需端口映射
-# - 仅对外暴露必要的 API 服务和管理界面
+# ============================================================================
+# 项目概述
+# ============================================================================
+#
+# MSCoin-Go 是一个基于 go-zero 框架的数字货币交易系统，包含以下微服务：
+#
+# 业务服务：
+#   - market-api (HTTP): 市场数据查询接口（币种、行情、K线、汇率）
+#   - market-rpc (gRPC): 市场数据 RPC 服务
+#   - ucenter-api (HTTP): 用户中心接口（注册、登录、钱包、提现）
+#   - ucenter-rpc (gRPC): 用户中心 RPC 服务
+#   - exchange-api (HTTP): 交易接口（订单创建、查询、取消）
+#   - exchange-rpc (gRPC): 交易 RPC 服务
+#   - jobcenter: 异步任务处理（提现执行、汇率同步、K线同步）
+#
+# 基础设施：
+#   - MySQL: 业务数据存储
+#   - Redis: 缓存（验证码、汇率、价格）
+#   - MongoDB: K线历史数据存储
+#   - Etcd: RPC 服务注册与发现
+#   - Kafka: 异步消息队列（提现事件）
+#   - Bitcoin Core: BTC 节点（测试网）
+#
+# ============================================================================
+# 网络架构说明
+# ============================================================================
+#
+# 网络拓扑：
+#   ┌─────────────────────────────────────────────────────────────────────┐
+#   │                        mscoin-network (bridge)                      │
+#   │                                                                     │
+#   │   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                │
+#   │   │  mysql      │  │   redis     │  │   etcd      │                │
+#   │   │  (MySQL)    │  │  (Redis)    │  │  (服务发现) │                │
+#   │   └─────────────┘  └─────────────┘  └─────────────┘                │
+#   │                                                                     │
+#   │   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                │
+#   │   │   mongo     │  │   kafka     │  │  bitcoin    │                │
+#   │   │  (MongoDB)  │  │  (消息队列) │  │  (BTC节点)  │                │
+#   │   └─────────────┘  └─────────────┘  └─────────────┘                │
+#   │                                                                     │
+#   │   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                │
+#   │   │ market-rpc  │  │ ucenter-rpc │  │ exchange-rpc│                │
+#   │   │  (gRPC)     │──│  (gRPC)     │──│  (gRPC)     │                │
+#   │   └─────────────┘  └─────────────┘  └─────────────┘                │
+#   │          │               │               │                         │
+#   │   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                │
+#   │   │ market-api  │  │ ucenter-api │  │ exchange-api│                │
+#   │   │  (HTTP)     │  │  (HTTP)     │  │  (HTTP)     │                │
+#   │   └─────────────┘  └─────────────┘  └─────────────┘                │
+#   │                                                                     │
+#   │   ┌─────────────────────────────────────────────────┐              │
+#   │   │              jobcenter (后台任务)                │              │
+#   │   └─────────────────────────────────────────────────┘              │
+#   └─────────────────────────────────────────────────────────────────────┘
 #
 # 端口暴露策略：
-# - API 服务（对外）：market-api, ucenter-api, exchange-api
-# - 管理界面：kafdrop（Kafka 管理UI）
-# - 基础设施和 RPC 服务：不暴露，仅内部通信
+#   - 仅对外暴露 HTTP API 服务和管理界面
+#   - RPC 服务和基础设施不暴露，仅内部通信
+#   - 通过服务名（如 mysql、redis）访问，无需端口映射
 #
-# 镜像复用说明：
-# - 优先使用本机已有的镜像，避免重复下载
-# - MySQL: 8.0.30（本机已有）
-# - Redis: 7-alpine（本机已有，体积更小）
-# - Etcd: quay.io/coreos/etcd:v3.5.25（本机已有）
-# - Kafka/Zookeeper: 7.5.3（本机已有）
+# ============================================================================
+# 镜像复用说明
+# ============================================================================
+#
+# 优先使用本机已有的镜像，避免重复下载：
+#   - MySQL: 8.0.30（本机已有）
+#   - Redis: 7-alpine（本机已有，体积更小约 40MB）
+#   - Etcd: quay.io/coreos/etcd:v3.5.25（本机已有）
+#   - Kafka/Zookeeper: 7.5.3（本机已有）
+#
+# 需要下载的镜像：
+#   - MongoDB: 7.0
+#   - Bitcoin: bitcoin/bitcoin:27.0
+#   - Kafdrop: obsidiandynamics/kafdrop:4.0.2
+#
+# ============================================================================
+# 启动命令
+# ============================================================================
+#
+# 启动所有服务：
+#   docker-compose up -d
+#
+# 查看服务状态：
+#   docker-compose ps
+#
+# 查看日志：
+#   docker-compose logs -f market-api
+#
+# 停止所有服务：
+#   docker-compose down
+#
+# 重新构建服务：
+#   docker-compose build market-api
+#
+# ============================================================================
+# 访问地址
+# ============================================================================
+#
+# API 服务：
+#   - Market API: http://localhost:8889
+#   - Ucenter API: http://localhost:8888
+#   - Exchange API: http://localhost:8890
+#
+# 管理界面：
+#   - Kafdrop (Kafka): http://localhost:19000
 
 name: mscoin-go
 
 services:
   # ============================================================================
-  # 基础设施层
+  # 基础设施层 - 数据存储与服务发现
   # ============================================================================
 
-  # MySQL 数据库 - 存储 market、ucenter、exchange 业务数据
-  # 使用本机已有的 mysql:8.0.30 镜像
+  # ---------------------------------------------------------------------------
+  # MySQL 数据库
+  # ---------------------------------------------------------------------------
+  # 功能：存储所有业务数据
+  #   - market 数据库：币种配置、交易对配置
+  #   - ucenter 数据库：会员信息、钱包、交易记录、提现记录
+  #   - exchange 数据库：订单数据
+  #
+  # 镜像：mysql:8.0.30（本机已有）
+  #
+  # 初始化脚本：deploy/mysql/init/*.sql
+  #   - 创建数据库和表结构
+  #   - 插入种子数据（币种配置等）
+  #
+  # 连接信息：
+  #   - 地址：mysql:3306（容器内）
+  #   - 用户：root
+  #   - 密码：root
+  #   - 数据库：market, ucenter, exchange
   mysql:
     image: mysql:8.0.30
     restart: unless-stopped
+    # 环境变量配置
     environment:
-      TZ: Asia/Shanghai
-      MYSQL_ROOT_PASSWORD: root
+      TZ: Asia/Shanghai                    # 时区设置
+      MYSQL_ROOT_PASSWORD: root            # root 用户密码
+    # MySQL 服务器启动参数
+    # --default-authentication-plugin: 使用 mysql_native_password 认证
+    # --character-set-server: 字符集设置为 utf8mb4（支持 emoji）
+    # --collation-server: 排序规则设置为 utf8mb4_general_ci
+    # --explicit_defaults_for_timestamp: TIMESTAMP 默认值行为
+    # --lower_case_table_names: 表名大小写不敏感
     command:
       - --default-authentication-plugin=mysql_native_password
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_general_ci
       - --explicit_defaults_for_timestamp=true
       - --lower_case_table_names=1
-    # 仅内部访问，不暴露端口
+    # 数据卷挂载
+    # mysql-data: 数据持久化卷
+    # deploy/mysql/init: 初始化脚本（只读挂载）
     volumes:
       - mysql-data:/var/lib/mysql
       - ./deploy/mysql/init:/docker-entrypoint-initdb.d:ro
+    # 健康检查：使用 mysqladmin ping 检测 MySQL 是否就绪
+    # interval: 检查间隔 10 秒
+    # timeout: 超时时间 5 秒
+    # retries: 重试次数 20 次（最多等待 200 秒）
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"]
       interval: 10s
@@ -50,15 +170,32 @@ services:
     networks:
       - mscoin-network
 
-  # Redis 缓存 - 验证码、汇率、最新价格缓存
-  # 使用本机已有的 redis:7-alpine 镜像（体积更小，约 40MB）
+  # ---------------------------------------------------------------------------
+  # Redis 缓存
+  # ---------------------------------------------------------------------------
+  # 功能：缓存服务
+  #   - 验证码缓存：注册验证码、提现验证码
+  #   - 汇率缓存：USD/CNY、USD/其他法币汇率
+  #   - 价格缓存：最新交易对价格
+  #   - txid 缓存：提现交易 ID 检查点（防止重复广播）
+  #
+  # 镜像：redis:7-alpine（本机已有，体积约 40MB）
+  #
+  # 连接信息：
+  #   - 地址：redis:6379（容器内）
+  #   - 密码：无
+  #   - 数据库：DB 0
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    # 启动命令
+    # redis-server: Redis 服务器
+    # --appendonly yes: 开启 AOF 持久化
     command: ["redis-server", "--appendonly", "yes"]
-    # 仅内部访问，不暴露端口
+    # 数据持久化卷
     volumes:
       - redis-data:/data
+    # 健康检查：使用 redis-cli ping 检测 Redis 是否就绪
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -67,18 +204,33 @@ services:
     networks:
       - mscoin-network
 
-  # Etcd 服务注册与发现 - go-zero RPC 服务发现
-  # 使用本机已有的 quay.io/coreos/etcd:v3.5.25 镜像
-  # 注意：coreos/etcd 的配置方式与 bitnami/etcd 不同
+  # ---------------------------------------------------------------------------
+  # Etcd 服务注册与发现
+  # ---------------------------------------------------------------------------
+  # 功能：RPC 服务注册与发现
+  #   - market-rpc 注册到 etcd，key 为 market.rpc
+  #   - ucenter-rpc 注册到 etcd，key 为 ucenter.rpc
+  #   - exchange-rpc 注册到 etcd，key 为 exchange.rpc
+  #   - API 服务通过 etcd 发现 RPC 服务地址
+  #
+  # 镜像：quay.io/coreos/etcd:v3.5.25（本机已有）
+  # 注意：coreos/etcd 配置方式与 bitnami/etcd 不同
+  #
+  # 连接信息：
+  #   - 地址：etcd:2379（容器内）
   etcd:
     image: quay.io/coreos/etcd:v3.5.25
     restart: unless-stopped
+    # 环境变量配置
+    # ETCD_ADVERTISE_CLIENT_URLS: 客户端访问地址（服务名）
+    # ETCD_LISTEN_CLIENT_URLS: 监听地址（所有接口）
     environment:
       ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
       ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
-    # 仅内部访问，不暴露端口
+    # 数据持久化卷
     volumes:
       - etcd-data:/etcd-data
+    # 健康检查：使用 etcdctl endpoint health 检测 Etcd 是否就绪
     healthcheck:
       test: ["CMD", "etcdctl", "--endpoints=http://127.0.0.1:2379", "endpoint", "health"]
       interval: 10s
@@ -87,18 +239,32 @@ services:
     networks:
       - mscoin-network
 
-  # MongoDB 文档数据库 - K线历史数据存储
-  # 需要下载（本机无此镜像）
+  # ---------------------------------------------------------------------------
+  # MongoDB 文档数据库
+  # ---------------------------------------------------------------------------
+  # 功能：存储 K 线历史数据
+  #   - 数据库：mscoin
+  #   - 集合：kline_1m, kline_3m, kline_5m, kline_15m, kline_30m, kline_1H, kline_2H, kline_4H, kline_1D, kline_1W, kline_1M
+  #
+  # 镜像：mongo:7.0（需要下载）
+  #
+  # 连接信息：
+  #   - 地址：mongo:27017（容器内）
+  #   - 用户：root
+  #   - 密码：root123456
+  #   - 认证数据库：admin
   mongo:
     image: mongo:7.0
     restart: unless-stopped
+    # 环境变量配置
     environment:
-      TZ: Asia/Shanghai
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: root123456
-    # 仅内部访问，不暴露端口
+      TZ: Asia/Shanghai                       # 时区设置
+      MONGO_INITDB_ROOT_USERNAME: root       # root 用户名
+      MONGO_INITDB_ROOT_PASSWORD: root123456 # root 密码
+    # 数据持久化卷
     volumes:
       - mongo-data:/data/db
+    # 健康检查：使用 mongosh ping 检测 MongoDB 是否就绪
     healthcheck:
       test:
         [
@@ -111,29 +277,62 @@ services:
     networks:
       - mscoin-network
 
-  # Zookeeper - Kafka 依赖的协调服务
-  # 使用本机已有的 confluentinc/cp-zookeeper:7.5.3 镜像
+  # ---------------------------------------------------------------------------
+  # Zookeeper 协调服务
+  # ---------------------------------------------------------------------------
+  # 功能：Kafka 依赖的分布式协调服务
+  #   - 管理 Kafka Broker 元数据
+  #   - 协助 Kafka Leader 选举
+  #
+  # 镜像：confluentinc/cp-zookeeper:7.5.3（本机已有）
+  #
+  # 连接信息：
+  #   - 地址：zookeeper:2181（容器内）
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.3
     restart: unless-stopped
+    # 环境变量配置
+    # ZOOKEEPER_CLIENT_PORT: 客户端连接端口
+    # ZOOKEEPER_TICK_TIME: Zookeeper 心跳间隔（毫秒）
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-    # 仅内部访问，不暴露端口
+    # 数据持久化卷
     volumes:
       - zookeeper-data:/var/lib/zookeeper/data
       - zookeeper-log:/var/lib/zookeeper/log
     networks:
       - mscoin-network
 
-  # Kafka 消息队列 - 提现事件、K线实时数据
-  # 使用本机已有的 confluentinc/cp-kafka:7.5.3 镜像
+  # ---------------------------------------------------------------------------
+  # Kafka 消息队列
+  # ---------------------------------------------------------------------------
+  # 功能：异步消息队列
+  #   - withdraw 主题：提现申请事件
+  #   - kline_1m 主题：实时 K 线数据（可选）
+  #
+  # 消息流程：
+  #   ucenter-rpc 发布提现事件 → jobcenter 消费 → 执行 BTC 提现
+  #
+  # 镜像：confluentinc/cp-kafka:7.5.3（本机已有）
+  #
+  # 连接信息：
+  #   - 地址：kafka:9092（容器内）
+  #   - 主题：withdraw, withdraw.dlq, kline_1m
   kafka:
     image: confluentinc/cp-kafka:7.5.3
     restart: unless-stopped
+    # 服务依赖：等待 Zookeeper 启动
     depends_on:
       zookeeper:
         condition: service_started
+    # 环境变量配置
+    # KAFKA_BROKER_ID: Broker 唯一标识
+    # KAFKA_ZOOKEEPER_CONNECT: Zookeeper 连接地址
+    # KAFKA_LISTENERS: 监听地址
+    # KAFKA_ADVERTISED_LISTENERS: 广播地址（服务名）
+    # KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: Offset 主题副本数（单节点为 1）
+    # KAFKA_AUTO_CREATE_TOPICS_ENABLE: 自动创建主题
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -145,7 +344,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    # 仅内部访问，不暴露端口
+    # 健康检查：使用 kafka-topics list 检测 Kafka 是否就绪
     healthcheck:
       test:
         [
@@ -158,27 +357,65 @@ services:
     networks:
       - mscoin-network
 
-  # Kafdrop - Kafka 管理界面（可选，调试用）
-  # 需要下载（本机无此镜像）
+  # ---------------------------------------------------------------------------
+  # Kafdrop Kafka 管理界面
+  # ---------------------------------------------------------------------------
+  # 功能：Kafka Web 管理界面
+  #   - 查看主题列表
+  #   - 查看消息内容
+  #   - 查看消费者组状态
+  #
+  # 镜像：obsidiandynamics/kafdrop:4.0.2（需要下载）
+  #
+  # 访问地址：http://localhost:19000
   kafdrop:
     image: obsidiandynamics/kafdrop:4.0.2
     restart: unless-stopped
+    # 环境变量配置
+    # KAFKA_BROKERCONNECT: Kafka 连接地址
+    # JVM_OPTS: JVM 内存配置（最小 32MB，最大 128MB）
     environment:
       KAFKA_BROKERCONNECT: kafka:9092
       JVM_OPTS: -Xms32M -Xmx128M
+    # 服务依赖：等待 Kafka 健康检查通过
     depends_on:
       kafka:
         condition: service_healthy
+    # 端口映射：19000 -> 9000（Web 界面）
     ports:
-      - "19000:9000"  # 对外暴露管理界面
+      - "19000:9000"
     networks:
       - mscoin-network
 
-  # Bitcoin Core - BTC 节点（测试网）
-  # 需要下载（本机无此镜像）
+  # ---------------------------------------------------------------------------
+  # Bitcoin Core 节点（测试网）
+  # ---------------------------------------------------------------------------
+  # 功能：比特币测试网节点
+  #   - 提供 RPC 接口用于地址分配和交易签名
+  #   - ucenter-rpc 使用 getnewaddress 分配充值地址
+  #   - jobcenter 使用 signrawtransactionwithwallet 签名提现交易
+  #
+  # 镜像：bitcoin/bitcoin:27.0（需要下载）
+  #
+  # 连接信息：
+  #   - RPC 地址：bitcoin:18332（容器内）
+  #   - 用户：bitcoin
+  #   - 密码：123456
+  #   - 网络：testnet（测试网）
+  #
+  # 注意：需要等待区块同步完成才能正常使用
   bitcoin:
     image: bitcoin/bitcoin:27.0
     restart: unless-stopped
+    # 启动命令参数
+    # -testnet=1: 使用测试网
+    # -server=1: 启用 RPC 服务
+    # -rpcbind: RPC 监听地址
+    # -rpcallowip: 允许的 RPC 客户端 IP
+    # -rpcport: RPC 端口（测试网默认 18332）
+    # -rpcuser/rpcpassword: RPC 认证信息
+    # -txindex=1: 启用交易索引
+    # -fallbackfee: 备用手续费
     command:
       - -testnet=1
       - -server=1
@@ -190,9 +427,10 @@ services:
       - -txindex=1
       - -fallbackfee=0.0002
       - -printtoconsole
-    # 仅内部访问，不暴露端口
+    # 数据持久化卷（存储区块链数据，较大）
     volumes:
       - bitcoin-data:/home/bitcoin/.bitcoin
+    # 健康检查：使用 bitcoin-cli getblockchaininfo 检测节点是否就绪
     healthcheck:
       test:
         [
@@ -205,30 +443,61 @@ services:
     networks:
       - mscoin-network
 
-  # Bitcoin 钱包初始化 - 创建/加载 mscoin 钱包
+  # ---------------------------------------------------------------------------
+  # Bitcoin 钱包初始化
+  # ---------------------------------------------------------------------------
+  # 功能：创建或加载 mscoin 钱包
+  #   - ucenter-rpc 和 jobcenter 共享同一个钱包
+  #   - 钱包名：mscoin
+  #   - 执行脚本：deploy/bitcoin/init-wallet.sh
+  #
+  # 注意：这是一次性任务（restart: "no"）
+  # 必须等待 Bitcoin Core 健康检查通过后才执行
   bitcoin-wallet-init:
     image: bitcoin/bitcoin:27.0
     restart: "no"
+    # 服务依赖：等待 Bitcoin Core 健康检查通过
     depends_on:
       bitcoin:
         condition: service_healthy
+    # 入口点：执行钱包初始化脚本
     entrypoint: ["/bin/sh", "/scripts/init-wallet.sh"]
+    # 脚本挂载：初始化脚本
     volumes:
       - ./deploy/bitcoin/init-wallet.sh:/scripts/init-wallet.sh:ro
     networks:
       - mscoin-network
 
   # ============================================================================
-  # 业务服务层 - RPC 服务（内部）
+  # 业务服务层 - RPC 服务（内部 gRPC）
   # ============================================================================
 
-  # Market RPC - 币种、交易对、K线、汇率查询
+  # ---------------------------------------------------------------------------
+  # Market RPC 服务
+  # ---------------------------------------------------------------------------
+  # 功能：市场数据 RPC 服务
+  #   - FindCoinInfo: 查询币种信息
+  #   - FindAllCoin: 查询所有币种
+  #   - FindSymbolInfo: 查询交易对信息
+  #   - FindSymbolThumbTrend: 查询行情趋势
+  #   - HistoryKline: 查询 K 线历史
+  #   - UsdRate: 查询汇率
+  #
+  # 依赖：
+  #   - MySQL: 币种、交易对配置
+  #   - Redis: 汇率缓存
+  #   - MongoDB: K 线数据
+  #   - Etcd: 服务注册
+  #
+  # 配置文件：app/market/rpc/etc/market.yaml
   market-rpc:
+    # 构建配置
     build:
-      context: .
-      dockerfile: app/market/rpc/Dockerfile
-    image: mscoin-go/market-rpc:local
+      context: .                              # 构建上下文（仓库根目录）
+      dockerfile: app/market/rpc/Dockerfile   # Dockerfile 路径
+    image: mscoin-go/market-rpc:local         # 镜像名称
     restart: unless-stopped
+    # 服务依赖
     depends_on:
       mysql:
         condition: service_healthy
@@ -238,17 +507,38 @@ services:
         condition: service_healthy
       etcd:
         condition: service_healthy
-    # RPC 服务仅内部访问，不暴露端口
     networks:
       - mscoin-network
 
-  # Ucenter RPC - 用户、钱包、提现业务
+  # ---------------------------------------------------------------------------
+  # Ucenter RPC 服务
+  # ---------------------------------------------------------------------------
+  # 功能：用户中心 RPC 服务
+  #   - Register: 用户注册
+  #   - Login: 用户登录
+  #   - CheckLogin: Token 验证
+  #   - FindMemberById: 查询会员信息
+  #   - FindWallet/FindWalletBySymbol: 查询钱包
+  #   - ResetAddress: 重置充值地址（BTC）
+  #   - FindTransaction: 查询交易记录
+  #   - WithdrawApply: 提现申请
+  #
+  # 依赖：
+  #   - MySQL: 会员、钱包、交易记录、提现记录
+  #   - Redis: 验证码缓存
+  #   - Kafka: 发布提现事件
+  #   - Etcd: 服务注册
+  #   - Market RPC: 币种信息查询
+  #   - Bitcoin Core: BTC 地址分配
+  #
+  # 配置文件：app/ucenter/rpc/etc/ucenter.yaml
   ucenter-rpc:
     build:
       context: .
       dockerfile: app/ucenter/rpc/Dockerfile
     image: mscoin-go/ucenter-rpc:local
     restart: unless-stopped
+    # 服务依赖
     depends_on:
       mysql:
         condition: service_healthy
@@ -261,18 +551,35 @@ services:
       market-rpc:
         condition: service_started
       bitcoin-wallet-init:
-        condition: service_completed_successfully
-    # RPC 服务仅内部访问，不暴露端口
+        condition: service_completed_successfully  # 必须等待钱包初始化完成
     networks:
       - mscoin-network
 
-  # Exchange RPC - 订单业务
+  # ---------------------------------------------------------------------------
+  # Exchange RPC 服务
+  # ---------------------------------------------------------------------------
+  # 功能：交易 RPC 服务
+  #   - AddOrder: 创建订单
+  #   - FindOrderCurrent: 查询当前委托订单
+  #   - FindOrderHistory: 查询历史订单
+  #   - FindByOrderId: 查询订单详情
+  #   - CancelOrder: 取消订单
+  #
+  # 依赖：
+  #   - MySQL: 订单数据
+  #   - Redis: 订单缓存
+  #   - Etcd: 服务注册
+  #   - Market RPC: 交易对配置查询
+  #   - Ucenter RPC: 会员信息、钱包查询
+  #
+  # 配置文件：app/exchange/rpc/etc/exchange.yaml
   exchange-rpc:
     build:
       context: .
       dockerfile: app/exchange/rpc/Dockerfile
     image: mscoin-go/exchange-rpc:local
     restart: unless-stopped
+    # 服务依赖
     depends_on:
       mysql:
         condition: service_healthy
@@ -284,15 +591,30 @@ services:
         condition: service_started
       ucenter-rpc:
         condition: service_started
-    # RPC 服务仅内部访问，不暴露端口
     networks:
       - mscoin-network
 
   # ============================================================================
-  # 业务服务层 - API 服务（对外）
+  # 业务服务层 - API 服务（对外 HTTP）
   # ============================================================================
 
-  # Market API - 市场数据 HTTP 接口
+  # ---------------------------------------------------------------------------
+  # Market API 服务
+  # ---------------------------------------------------------------------------
+  # 功能：市场数据 HTTP 接口
+  #   - POST /market/coin-info: 查询币种信息
+  #   - POST /market/symbol-info: 查询交易对信息
+  #   - POST /market/symbol-thumb: 查询行情快照
+  #   - POST /market/symbol-thumb-trend: 查询行情趋势
+  #   - GET /market/history: 查询 K 线历史
+  #   - POST /market/exchange-rate/usd/:unit: 查询汇率
+  #
+  # 依赖：
+  #   - Market RPC: 所有市场数据查询
+  #
+  # 配置文件：app/market/api/etc/market-api.yaml
+  #
+  # 访问地址：http://localhost:8889
   market-api:
     build:
       context: .
@@ -302,12 +624,34 @@ services:
     depends_on:
       market-rpc:
         condition: service_started
+    # 端口映射：8889 -> 8889（HTTP API）
     ports:
-      - "8889:8889"  # 对外暴露 API 端口
+      - "8889:8889"
     networks:
       - mscoin-network
 
-  # Ucenter API - 用户中心 HTTP 接口
+  # ---------------------------------------------------------------------------
+  # Ucenter API 服务
+  # ---------------------------------------------------------------------------
+  # 功能：用户中心 HTTP 接口
+  #   - POST /uc/mobile/code: 发送验证码
+  #   - POST /uc/register/phone: 注册
+  #   - POST /uc/login: 登录
+  #   - POST /uc/check/login: Token 验证
+  #   - POST /uc/asset/wallet: 钱包列表（需认证）
+  #   - POST /uc/asset/wallet/:coinName: 钱包详情（需认证）
+  #   - POST /uc/asset/wallet/reset-address: 重置地址（需认证）
+  #   - POST /uc/asset/transaction/all: 交易记录（需认证）
+  #   - POST /uc/withdraw/apply/code: 提现申请（需认证）
+  #   - POST /uc/withdraw/record: 提现记录（需认证）
+  #
+  # 依赖：
+  #   - Ucenter RPC: 用户认证、钱包管理、提现
+  #   - Market RPC: 币种信息（提现支持币种聚合）
+  #
+  # 配置文件：app/ucenter/api/etc/ucenter-api.yaml
+  #
+  # 访问地址：http://localhost:8888
   ucenter-api:
     build:
       context: .
@@ -319,12 +663,26 @@ services:
         condition: service_started
       market-rpc:
         condition: service_started
+    # 端口映射：8888 -> 8888（HTTP API）
     ports:
-      - "8888:8888"  # 对外暴露 API 端口
+      - "8888:8888"
     networks:
       - mscoin-network
 
-  # Exchange API - 交易 HTTP 接口
+  # ---------------------------------------------------------------------------
+  # Exchange API 服务
+  # ---------------------------------------------------------------------------
+  # 功能：交易 HTTP 接口
+  #   - POST /exchange/order/add: 创建订单（需认证）
+  #   - POST /exchange/order/current: 当前委托订单（需认证）
+  #   - POST /exchange/order/history: 历史订单（需认证）
+  #
+  # 依赖：
+  #   - Exchange RPC: 订单管理
+  #
+  # 配置文件：app/exchange/api/etc/exchange-api.yaml
+  #
+  # 访问地址：http://localhost:8890
   exchange-api:
     build:
       context: .
@@ -334,23 +692,46 @@ services:
     depends_on:
       exchange-rpc:
         condition: service_started
+    # 端口映射：8890 -> 8890（HTTP API）
     ports:
-      - "8890:8890"  # 对外暴露 API 端口
+      - "8890:8890"
     networks:
       - mscoin-network
 
   # ============================================================================
-  # 异步任务层
+  # 异步任务层 - Jobcenter
   # ============================================================================
 
-  # Jobcenter - 异步任务处理中心
-  # 处理：提现执行、汇率同步、K线同步
+  # ---------------------------------------------------------------------------
+  # Jobcenter 异步任务中心
+  # ---------------------------------------------------------------------------
+  # 功能：后台异步任务处理
+  #   - Kafka 消费者：消费提现事件，执行 BTC 提现
+  #   - 定时任务：
+  #     - 汇率同步：每 5 分钟同步 OKX USD/CNY 汇率
+  #     - K 线同步：定时同步各周期 K 线数据（1m, 3m, 5m, 15m, 30m, 1H, 2H, 4H, 1D, 1W, 1M）
+  #     - 价格刷新：每分钟刷新最新价格到 Redis
+  #
+  # 依赖：
+  #   - MySQL: 提现记录状态更新
+  #   - Redis: txid 缓存、价格缓存
+  #   - MongoDB: K 线数据写入
+  #   - Kafka: 消费提现事件
+  #   - Etcd: 服务注册（可选）
+  #   - Market RPC: 币种信息查询
+  #   - Ucenter RPC: 钱包地址查询
+  #   - Bitcoin Core: BTC 提现签名和广播
+  #
+  # 配置文件：app/jobcenter/etc/jobcenter.yaml
+  #
+  # 注意：不对外暴露端口，仅作为后台任务运行
   jobcenter:
     build:
       context: .
       dockerfile: app/jobcenter/Dockerfile
     image: mscoin-go/jobcenter:local
     restart: unless-stopped
+    # 服务依赖
     depends_on:
       mysql:
         condition: service_healthy
@@ -367,15 +748,19 @@ services:
       ucenter-rpc:
         condition: service_started
       bitcoin-wallet-init:
-        condition: service_completed_successfully
-    # 后台任务服务，无需暴露端口
+        condition: service_completed_successfully  # 必须等待钱包初始化完成
+    # 后台任务服务，不对外暴露端口
     networks:
       - mscoin-network
 
 # ============================================================================
 # 网络配置
 # ============================================================================
-
+#
+# mscoin-network: 所有服务互联的桥接网络
+#   - 容器间通过服务名（如 mysql、redis）互相访问
+#   - 无需端口映射，内部通信更安全
+#   - driver: bridge 是默认的网络驱动
 networks:
   mscoin-network:
     driver: bridge
@@ -384,7 +769,15 @@ networks:
 # ============================================================================
 # 数据卷配置
 # ============================================================================
-
+#
+# 数据持久化卷：确保容器重启后数据不丢失
+#   - mysql-data: MySQL 数据文件
+#   - redis-data: Redis AOF 持久化文件
+#   - etcd-data: Etcd 数据文件
+#   - mongo-data: MongoDB 数据文件
+#   - zookeeper-data: Zookeeper 数据文件
+#   - zookeeper-log: Zookeeper 日志文件
+#   - bitcoin-data: Bitcoin 区块链数据（较大，约数 GB）
 volumes:
   mysql-data:        # MySQL 数据持久化
   redis-data:        # Redis 数据持久化

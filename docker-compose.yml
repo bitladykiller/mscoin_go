@@ -9,6 +9,13 @@
 # - API 服务（对外）：market-api, ucenter-api, exchange-api
 # - 管理界面：kafdrop（Kafka 管理UI）
 # - 基础设施和 RPC 服务：不暴露，仅内部通信
+#
+# 镜像复用说明：
+# - 优先使用本机已有的镜像，避免重复下载
+# - MySQL: 8.0.30（本机已有）
+# - Redis: 7-alpine（本机已有，体积更小）
+# - Etcd: quay.io/coreos/etcd:v3.5.25（本机已有）
+# - Kafka/Zookeeper: 7.5.3（本机已有）
 
 name: mscoin-go
 
@@ -18,8 +25,9 @@ services:
   # ============================================================================
 
   # MySQL 数据库 - 存储 market、ucenter、exchange 业务数据
+  # 使用本机已有的 mysql:8.0.30 镜像
   mysql:
-    image: mysql:8.4
+    image: mysql:8.0.30
     restart: unless-stopped
     environment:
       TZ: Asia/Shanghai
@@ -43,8 +51,9 @@ services:
       - mscoin-network
 
   # Redis 缓存 - 验证码、汇率、最新价格缓存
+  # 使用本机已有的 redis:7-alpine 镜像（体积更小，约 40MB）
   redis:
-    image: redis:7.2
+    image: redis:7-alpine
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     # 仅内部访问，不暴露端口
@@ -59,16 +68,17 @@ services:
       - mscoin-network
 
   # Etcd 服务注册与发现 - go-zero RPC 服务发现
+  # 使用本机已有的 quay.io/coreos/etcd:v3.5.25 镜像
+  # 注意：coreos/etcd 的配置方式与 bitnami/etcd 不同
   etcd:
-    image: bitnami/etcd:3.5
+    image: quay.io/coreos/etcd:v3.5.25
     restart: unless-stopped
     environment:
-      ALLOW_NONE_AUTHENTICATION: "yes"
       ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
       ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
     # 仅内部访问，不暴露端口
     volumes:
-      - etcd-data:/bitnami/etcd
+      - etcd-data:/etcd-data
     healthcheck:
       test: ["CMD", "etcdctl", "--endpoints=http://127.0.0.1:2379", "endpoint", "health"]
       interval: 10s
@@ -78,6 +88,7 @@ services:
       - mscoin-network
 
   # MongoDB 文档数据库 - K线历史数据存储
+  # 需要下载（本机无此镜像）
   mongo:
     image: mongo:7.0
     restart: unless-stopped
@@ -101,8 +112,9 @@ services:
       - mscoin-network
 
   # Zookeeper - Kafka 依赖的协调服务
+  # 使用本机已有的 confluentinc/cp-zookeeper:7.5.3 镜像
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.6.1
+    image: confluentinc/cp-zookeeper:7.5.3
     restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -115,8 +127,9 @@ services:
       - mscoin-network
 
   # Kafka 消息队列 - 提现事件、K线实时数据
+  # 使用本机已有的 confluentinc/cp-kafka:7.5.3 镜像
   kafka:
-    image: confluentinc/cp-kafka:7.6.1
+    image: confluentinc/cp-kafka:7.5.3
     restart: unless-stopped
     depends_on:
       zookeeper:
@@ -146,6 +159,7 @@ services:
       - mscoin-network
 
   # Kafdrop - Kafka 管理界面（可选，调试用）
+  # 需要下载（本机无此镜像）
   kafdrop:
     image: obsidiandynamics/kafdrop:4.0.2
     restart: unless-stopped
@@ -161,6 +175,7 @@ services:
       - mscoin-network
 
   # Bitcoin Core - BTC 节点（测试网）
+  # 需要下载（本机无此镜像）
   bitcoin:
     image: bitcoin/bitcoin:27.0
     restart: unless-stopped

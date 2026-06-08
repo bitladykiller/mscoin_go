@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	marketpb "mscoin_go/app/market/rpc/pb/market"
@@ -9,7 +10,10 @@ import (
 	"mscoin_go/app/ucenter/rpc/internal/model"
 	"mscoin_go/app/ucenter/rpc/internal/svc"
 	assetpb "mscoin_go/app/ucenter/rpc/pb/asset"
+	"mscoin_go/pkg/cache/redisx"
+	"mscoin_go/pkg/lock"
 
+	"github.com/alicebob/miniredis/v2"
 	"google.golang.org/grpc"
 )
 
@@ -163,5 +167,77 @@ func TestGetAddressReturnsAllCoinAddresses(t *testing.T) {
 	}
 	if len(resp.List) != 2 {
 		t.Fatalf("GetAddress().List len = %d, want 2", len(resp.List))
+	}
+}
+
+func TestResetAddressFailsWhenDistributedLockIsHeld(t *testing.T) {
+	t.Parallel()
+
+	miniRedis, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("start miniredis: %v", err)
+	}
+	defer miniRedis.Close()
+
+	cache := redisx.New(redisx.Config{Addrs: []string{miniRedis.Addr()}})
+
+	lockKey := resetAddressLockKeyPrefix + "8:BTC"
+	competingLock, err := lock.NewRedisLock(
+		cache.Raw(),
+		lockKey,
+		lock.WithTTL(resetAddressLockTTL),
+		lock.WithRetry(0, 0),
+		lock.WithWatchdog(true),
+	)
+	if err != nil {
+		t.Fatalf("NewRedisLock() error = %v", err)
+	}
+	defer competingLock.Close()
+
+	if err := competingLock.Lock(context.Background()); err != nil {
+		t.Fatalf("competingLock.Lock() error = %v", err)
+	}
+
+	allocateCalled := false
+	repo := &fakeWalletRepo{
+		findByMemberIDFn: func(context.Context, int64) ([]*model.MemberWallet, error) { return nil, nil },
+		findByMemberIDAndCoinNameFn: func(ctx context.Context, memberID int64, coinName string) (*model.MemberWallet, error) {
+			return &model.MemberWallet{
+				Id:       1,
+				MemberId: memberID,
+				CoinId:   9,
+				CoinName: coinName,
+			}, nil
+		},
+		findAllAddressFn: func(context.Context, string) ([]string, error) { return nil, nil },
+		updateAddressFn:  func(context.Context, *model.MemberWallet) error { return nil },
+		saveFn:           func(context.Context, *model.MemberWallet) error { return nil },
+	}
+
+	logic := NewResetAddressLogic(context.Background(), &svc.ServiceContext{
+		Cache:         cache,
+		WalletService: service.NewWalletService(repo),
+		MarketClient: &fakeMarketClientForAsset{
+			findCoinInfoFn: func(ctx context.Context, in *marketpb.MarketReq, opts ...grpc.CallOption) (*marketpb.Coin, error) {
+				return &marketpb.Coin{Id: 9, Unit: "BTC"}, nil
+			},
+		},
+		AddressAllocator: &fakeAddressAllocator{
+			allocateFn: func(ctx context.Context, label string) (string, error) {
+				allocateCalled = true
+				return "mnodeAllocatedAddress", nil
+			},
+		},
+	})
+
+	_, err = logic.ResetAddress(&assetpb.AssetReq{UserId: 8, CoinName: "BTC"})
+	if err == nil {
+		t.Fatal("ResetAddress() should fail when distributed lock is held")
+	}
+	if !errors.Is(err, lock.ErrLockNotAcquired) {
+		t.Fatalf("ResetAddress() error = %v, want ErrLockNotAcquired", err)
+	}
+	if allocateCalled {
+		t.Fatal("ResetAddress() should not allocate address when distributed lock acquisition fails")
 	}
 }

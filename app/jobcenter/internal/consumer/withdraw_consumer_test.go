@@ -6,12 +6,26 @@
 package consumer
 
 import (
+	"context"
 	"errors"
 	"testing"
 
 	domainservice "mscoin_go/app/jobcenter/internal/domain/service"
+	"mscoin_go/app/jobcenter/internal/model"
+	"mscoin_go/pkg/cache/redisx"
+	"mscoin_go/pkg/lock"
 	"mscoin_go/pkg/mq/kafka"
+
+	"github.com/alicebob/miniredis/v2"
 )
+
+type fakeWithdrawProcessor struct {
+	processAppliedFn func(ctx context.Context, event *model.WithdrawRecordEvent) error
+}
+
+func (f *fakeWithdrawProcessor) ProcessApplied(ctx context.Context, event *model.WithdrawRecordEvent) error {
+	return f.processAppliedFn(ctx, event)
+}
 
 // TestClassifyWithdrawError 验证错误分类函数的三种处理路径。
 //
@@ -34,5 +48,71 @@ func TestClassifyWithdrawError(t *testing.T) {
 	}
 	if action := classifyWithdrawError(domainservice.NewNonRetryableError(errors.New("poison"))); action != kafka.ConsumeDeadLetter {
 		t.Fatalf("classifyWithdrawError(non-retryable) = %v, want %v", action, kafka.ConsumeDeadLetter)
+	}
+}
+
+func TestProcessWithdrawEventCallsProcessorWithoutRedis(t *testing.T) {
+	t.Parallel()
+
+	called := false
+	err := processWithdrawEvent(context.Background(), nil, &fakeWithdrawProcessor{
+		processAppliedFn: func(ctx context.Context, event *model.WithdrawRecordEvent) error {
+			called = true
+			if event.Id != 9 {
+				t.Fatalf("event.Id = %d, want 9", event.Id)
+			}
+			return nil
+		},
+	}, &model.WithdrawRecordEvent{Id: 9})
+	if err != nil {
+		t.Fatalf("processWithdrawEvent() error = %v", err)
+	}
+	if !called {
+		t.Fatal("processWithdrawEvent() did not call processor")
+	}
+}
+
+func TestProcessWithdrawEventFailsWhenCompetingLockExists(t *testing.T) {
+	t.Parallel()
+
+	miniRedis, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("start miniredis: %v", err)
+	}
+	defer miniRedis.Close()
+
+	cache := redisx.New(redisx.Config{Addrs: []string{miniRedis.Addr()}})
+
+	competingLock, err := lock.NewRedisLock(
+		cache.Raw(),
+		withdrawEventLockKeyPrefix+"12",
+		lock.WithTTL(withdrawEventLockTTL),
+		lock.WithRetry(0, 0),
+		lock.WithWatchdog(true),
+	)
+	if err != nil {
+		t.Fatalf("NewRedisLock() error = %v", err)
+	}
+	defer competingLock.Close()
+
+	if err := competingLock.Lock(context.Background()); err != nil {
+		t.Fatalf("competingLock.Lock() error = %v", err)
+	}
+
+	called := false
+	err = processWithdrawEvent(context.Background(), cache, &fakeWithdrawProcessor{
+		processAppliedFn: func(ctx context.Context, event *model.WithdrawRecordEvent) error {
+			called = true
+			return nil
+		},
+	}, &model.WithdrawRecordEvent{Id: 12})
+	if err == nil {
+		t.Fatal("processWithdrawEvent() should fail when lock is held by another worker")
+	}
+	if !errors.Is(err, lock.ErrLockNotAcquired) {
+		t.Fatalf("processWithdrawEvent() error = %v, want ErrLockNotAcquired", err)
+	}
+	if called {
+		t.Fatal("processWithdrawEvent() should not call processor when lock acquisition fails")
 	}
 }

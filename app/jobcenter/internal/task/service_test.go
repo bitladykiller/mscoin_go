@@ -8,11 +8,15 @@ package task
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"mscoin_go/app/jobcenter/internal/config"
+
+	"github.com/alicebob/miniredis/v2"
+	goredis "github.com/go-redis/redis/v8"
 )
 
 // TestServiceRunsRunOnStartJobImmediately 验证 RunOnStart 配置的功能。
@@ -70,4 +74,76 @@ func TestServiceRunsRunOnStartJobImmediately(t *testing.T) {
 	service.Stop()
 	<-done
 	t.Fatal("Start() did not run the task immediately")
+}
+
+func TestExecuteWithLockCancelsJobWhenLeaseLost(t *testing.T) {
+	t.Parallel()
+
+	miniRedis, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("start miniredis: %v", err)
+	}
+	defer miniRedis.Close()
+
+	rdb := goredis.NewClient(&goredis.Options{Addr: miniRedis.Addr()})
+	defer func() {
+		_ = rdb.Close()
+	}()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	service := &Service{
+		ctx:    ctx,
+		cancel: cancel,
+		lockConfig: config.LockConfig{
+			Enabled:    true,
+			TTL:        1,
+			MaxRetries: 0,
+			RetryDelay: 1,
+		},
+		redis: rdb,
+	}
+
+	started := make(chan struct{})
+	stopped := make(chan error, 1)
+	done := make(chan struct{})
+
+	job := intervalJob{
+		name: "lease-loss",
+		run: func(ctx context.Context) error {
+			close(started)
+			<-ctx.Done()
+			stopped <- ctx.Err()
+			return ctx.Err()
+		},
+	}
+
+	go func() {
+		service.executeWithLock(job)
+		close(done)
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("job did not start")
+	}
+
+	miniRedis.Close()
+
+	select {
+	case err := <-stopped:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("job context error = %v, want context.Canceled", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("job context was not canceled after lock lease loss")
+	}
+
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("executeWithLock() did not return after lock lease loss")
+	}
 }

@@ -13,14 +13,32 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	domainservice "mscoin_go/app/jobcenter/internal/domain/service"
 	"mscoin_go/app/jobcenter/internal/model"
 	"mscoin_go/app/jobcenter/internal/svc"
+	"mscoin_go/pkg/cache/redisx"
+	"mscoin_go/pkg/lock"
 	"mscoin_go/pkg/mq/kafka"
 
 	coreservice "github.com/zeromicro/go-zero/core/service"
 )
+
+const (
+	// withdrawEventLockKeyPrefix 是提现消费分布式锁的键前缀。
+	// 完整键格式：jobcenter:withdraw:{recordID}
+	withdrawEventLockKeyPrefix = "jobcenter:withdraw:"
+
+	// withdrawEventLockTTL 是提现消费分布式锁的 TTL。
+	// 链上提现可能比普通数据库操作更慢，因此保守使用 2 分钟并交给看门狗自动续期。
+	withdrawEventLockTTL = 2 * time.Minute
+)
+
+// withdrawProcessor 抽象提现事件的处理能力，便于单元测试锁包装逻辑。
+type withdrawProcessor interface {
+	ProcessApplied(ctx context.Context, event *model.WithdrawRecordEvent) error
+}
 
 // NewWithdrawConsumer 创建提现事件消费者。
 //
@@ -54,10 +72,47 @@ func NewWithdrawConsumer(svcCtx *svc.ServiceContext) (coreservice.Service, error
 			if err := json.Unmarshal(message.Value, &event); err != nil {
 				return domainservice.NewNonRetryableError(fmt.Errorf("unmarshal withdraw event: %w", err))
 			}
-			return svcCtx.WithdrawService.ProcessApplied(ctx, &event)
+			return processWithdrawEvent(ctx, svcCtx.Cache, svcCtx.WithdrawService, &event)
 		},
 		classifyWithdrawError,
 	)
+}
+
+// processWithdrawEvent 在处理提现事件前先获取按记录 ID 粒度的分布式锁。
+//
+// 为什么这里需要锁：
+//   - Kafka 是至少一次投递语义，重复消费在工程上必须视为常态
+//   - 提现处理会触发链上转账，属于不可逆的外部副作用
+//   - 仅依赖最终状态更新不足以防止“两个实例同时广播转账”
+//
+// 为什么锁范围放在消费者适配层：
+//   - 当前只有 Kafka 消费者会驱动 `ProcessApplied`
+//   - 领域服务保持业务聚合职责，不直接感知消息队列和锁键策略
+func processWithdrawEvent(ctx context.Context, cache *redisx.Client, processor withdrawProcessor, event *model.WithdrawRecordEvent) error {
+	if processor == nil {
+		return fmt.Errorf("withdraw processor is required")
+	}
+	if cache == nil {
+		return processor.ProcessApplied(ctx, event)
+	}
+
+	eventLock, err := lock.NewRedisLock(
+		cache.Raw(),
+		fmt.Sprintf("%s%d", withdrawEventLockKeyPrefix, event.Id),
+		lock.WithTTL(withdrawEventLockTTL),
+		lock.WithRetry(0, 0),
+		lock.WithWatchdog(true),
+	)
+	if err != nil {
+		return fmt.Errorf("create withdraw event lock: %w", err)
+	}
+	defer eventLock.Close()
+
+	if err := eventLock.Lock(ctx); err != nil {
+		return fmt.Errorf("acquire withdraw event lock: %w", err)
+	}
+
+	return processor.ProcessApplied(ctx, event)
 }
 
 // classifyWithdrawError 根据错误类型决定 Kafka 消息的处理动作。

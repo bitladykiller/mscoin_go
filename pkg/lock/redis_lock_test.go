@@ -4,6 +4,9 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/alicebob/miniredis/v2"
+	goredis "github.com/go-redis/redis/v8"
 )
 
 // ============================================================================
@@ -114,21 +117,102 @@ func TestWatchdogInterval_Calculation(t *testing.T) {
 		ttl      time.Duration
 		expected time.Duration
 	}{
-		{30 * time.Second, 10 * time.Second},  // TTL/3 = 10s
-		{60 * time.Second, 20 * time.Second},  // TTL/3 = 20s
-		{90 * time.Second, 30 * time.Second},  // TTL/3 = 30s
-		{3 * time.Second, 1 * time.Second},    // TTL/3 = 1s（最小值）
+		{30 * time.Second, 10 * time.Second},      // TTL/3 = 10s
+		{60 * time.Second, 20 * time.Second},      // TTL/3 = 20s
+		{90 * time.Second, 30 * time.Second},      // TTL/3 = 30s
+		{3 * time.Second, 1 * time.Second},        // TTL/3 = 1s（最小值）
 		{500 * time.Millisecond, 1 * time.Second}, // TTL/3 < 1s，使用最小值
 	}
 
 	for _, tt := range tests {
-		interval := tt.ttl / 3
-		if interval < time.Second {
-			interval = time.Second
-		}
+		interval := watchdogInterval(tt.ttl)
 		if interval != tt.expected {
 			t.Errorf("TTL=%v: expected interval %v, got %v", tt.ttl, tt.expected, interval)
 		}
+	}
+}
+
+func TestLockWatchdogCancelsContextWhenLeaseLost(t *testing.T) {
+	t.Parallel()
+
+	miniRedis, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("start miniredis: %v", err)
+	}
+	defer miniRedis.Close()
+
+	rdb := goredis.NewClient(&goredis.Options{Addr: miniRedis.Addr()})
+	defer func() {
+		_ = rdb.Close()
+	}()
+
+	lock, err := NewRedisLock(rdb, "test:lock:lease-lost",
+		WithTTL(1500*time.Millisecond),
+		WithRetry(0, 0),
+		WithWatchdog(true),
+	)
+	if err != nil {
+		t.Fatalf("NewRedisLock() failed: %v", err)
+	}
+
+	if err := lock.Lock(context.Background()); err != nil {
+		t.Fatalf("Lock() failed: %v", err)
+	}
+
+	miniRedis.Close()
+
+	select {
+	case <-lock.Context().Done():
+	case <-time.After(3 * time.Second):
+		t.Fatal("watchdog did not cancel run context after lease loss")
+	}
+
+	if !lock.LeaseLost() {
+		t.Fatal("expected leaseLost to be true after watchdog renewal failure")
+	}
+}
+
+func TestLockUnlockStopsWatchdogWithoutLateLeaseLoss(t *testing.T) {
+	t.Parallel()
+
+	miniRedis, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("start miniredis: %v", err)
+	}
+	defer miniRedis.Close()
+
+	rdb := goredis.NewClient(&goredis.Options{Addr: miniRedis.Addr()})
+	defer func() {
+		_ = rdb.Close()
+	}()
+
+	lock, err := NewRedisLock(rdb, "test:lock:unlock",
+		WithTTL(1500*time.Millisecond),
+		WithRetry(0, 0),
+		WithWatchdog(true),
+	)
+	if err != nil {
+		t.Fatalf("NewRedisLock() failed: %v", err)
+	}
+
+	if err := lock.Lock(context.Background()); err != nil {
+		t.Fatalf("Lock() failed: %v", err)
+	}
+
+	if err := lock.Unlock(context.Background()); err != nil {
+		t.Fatalf("Unlock() failed: %v", err)
+	}
+
+	time.Sleep(1200 * time.Millisecond)
+
+	if lock.LeaseLost() {
+		t.Fatal("Unlock() should stop watchdog before any late lease-loss signal is emitted")
+	}
+	if miniRedis.Exists(lock.Key()) {
+		t.Fatal("lock key should be deleted after Unlock()")
+	}
+	if lock.Context().Err() == nil {
+		t.Fatal("run context should be canceled after Unlock()")
 	}
 }
 

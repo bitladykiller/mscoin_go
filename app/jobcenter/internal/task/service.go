@@ -117,10 +117,10 @@ func NewService(svcCtx *svc.ServiceContext) coreservice.Service {
 	}
 
 	service := &Service{
-		ctx:         ctx,
-		cancel:      cancel,
-		lockConfig:  svcCtx.Config.Tasks.Lock,
-		redis:       redisClient,
+		ctx:        ctx,
+		cancel:     cancel,
+		lockConfig: svcCtx.Config.Tasks.Lock,
+		redis:      redisClient,
 	}
 
 	if svcCtx != nil {
@@ -203,8 +203,9 @@ func (s *Service) registerJobs(svcCtx *svc.ServiceContext) {
 // 分布式锁逻辑（仅当 lockConfig.Enabled 为 true 时生效）：
 //  1. 每次执行前尝试获取分布式锁
 //  2. 获取成功后启动看门狗自动续期
-//  3. 任务完成后释放锁（同时停止看门狗）
-//  4. 获取失败则跳过本次执行（其他实例正在执行）
+//  3. 如果看门狗检测到续期失败，会取消任务执行上下文
+//  4. 任务完成后释放锁（同时停止看门狗）
+//  5. 获取失败则跳过本次执行（其他实例正在执行）
 //
 // 参数：
 //   - job: 要执行的任务配置
@@ -246,7 +247,7 @@ func (s *Service) runLoop(job intervalJob) {
 func (s *Service) executeWithLock(job intervalJob) {
 	// 未启用分布式锁，直接执行
 	if !s.lockConfig.Enabled || s.redis == nil {
-		s.execute(job)
+		s.execute(job, s.ctx)
 		return
 	}
 
@@ -278,8 +279,13 @@ func (s *Service) executeWithLock(job intervalJob) {
 	}
 
 	// 获取锁成功，执行任务
-	// 看门狗会自动续期锁，直到任务完成
-	s.execute(job)
+	// 看门狗会自动续期锁，直到任务完成。
+	// 如果续期失败，锁会取消任务上下文，促使任务尽快退出。
+	s.execute(job, taskLock.Context())
+
+	if taskLock.LeaseLost() {
+		logx.Errorf("jobcenter task %s stopped because distributed lock lease was lost", job.name)
+	}
 
 	// 任务完成，释放锁（同时停止看门狗）
 	if err := taskLock.Unlock(s.ctx); err != nil {
@@ -294,11 +300,11 @@ func (s *Service) executeWithLock(job intervalJob) {
 //   - 失败：记录 error 日志，但不影响其他任务
 //
 // 注意：任务执行失败不会导致任务停止，下一个周期会继续尝试执行。
-func (s *Service) execute(job intervalJob) {
+func (s *Service) execute(job intervalJob, ctx context.Context) {
 	if job.run == nil {
 		return
 	}
-	if err := job.run(s.ctx); err != nil {
+	if err := job.run(ctx); err != nil {
 		logx.Errorf("jobcenter task %s failed: %v", job.name, err)
 		return
 	}

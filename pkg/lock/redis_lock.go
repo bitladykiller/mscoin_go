@@ -7,9 +7,10 @@
 //   - 支持优雅停止：任务完成后停止看门狗并释放锁
 //
 // 看门狗原理：
-//   获取锁后启动一个后台 goroutine，每隔 TTL/3 的时间续期一次锁。
-//   任务完成后停止看门狗并释放锁。
-//   这样可以保证：只要任务还在执行，锁就不会过期。
+//
+//	获取锁后启动一个后台 goroutine，每隔 TTL/3 的时间续期一次锁。
+//	任务完成后停止看门狗并释放锁。
+//	这样可以保证：只要任务还在执行，锁就不会过期。
 //
 // 使用示例：
 //
@@ -36,6 +37,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	goredis "github.com/go-redis/redis/v8"
@@ -47,6 +49,9 @@ var (
 
 	// ErrLockReleased 锁已被释放，不能再操作
 	ErrLockReleased = errors.New("lock already released")
+
+	// ErrLockLeaseLost 表示看门狗续期失败，当前实例已丢失锁租约。
+	ErrLockLeaseLost = errors.New("lock lease lost")
 )
 
 // ============================================================================
@@ -125,16 +130,35 @@ type RedisLock struct {
 	cfg LockConfig
 
 	// watchdog 看门狗定时器
-	watchdog *time.Ticker
+	// 为什么不直接共享 ticker：
+	//   - 看门狗 goroutine 会捕获自己的 ticker 和停止上下文副本
+	//   - Unlock 只负责触发 cancel 并等待退出，避免共享字段被并发读写
+	watchdogCancel context.CancelFunc
 
-	// stopCh 停止看门狗的信号通道
-	stopCh chan struct{}
+	// watchdogWG 等待看门狗 goroutine 退出，确保 Unlock 返回前后台续期已停止。
+	watchdogWG sync.WaitGroup
+
+	// runCtx 是持锁任务应使用的执行上下文。
+	// 它会在以下任一场景被取消：
+	//   - 调用方传入的父 ctx 被取消
+	//   - 锁被正常释放
+	//   - 看门狗检测到续期失败，租约丢失
+	runCtx context.Context
+
+	// runCancel 用于取消 runCtx。
+	runCancel context.CancelFunc
+
+	// leaseLost 标记是否已检测到租约丢失。
+	leaseLost atomic.Bool
 
 	// released 标记锁是否已释放
 	released bool
 
-	// mu 保护 released 和 watchdog 的并发访问
+	// mu 保护 released、runCtx 和 cancel 函数的初始化/读取。
 	mu sync.Mutex
+
+	// releaseMu 串行化 Unlock/Close，避免重复释放路径交错执行。
+	releaseMu sync.Mutex
 }
 
 // NewRedisLock 创建一个新的分布式锁实例。
@@ -214,9 +238,13 @@ func (l *RedisLock) Lock(ctx context.Context) error {
 		}
 
 		if ok {
+			runCtx, runCancel := context.WithCancel(ctx)
+			l.runCtx = runCtx
+			l.runCancel = runCancel
+
 			// 获取锁成功，启动看门狗
 			if l.cfg.WatchdogEnabled {
-				l.startWatchdog(ctx)
+				l.startWatchdog(runCtx, runCancel)
 			}
 			return nil
 		}
@@ -241,12 +269,15 @@ func (l *RedisLock) Lock(ctx context.Context) error {
 //
 // 注意：Unlock 是幂等的，多次调用不会报错。
 func (l *RedisLock) Unlock(ctx context.Context) error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	l.releaseMu.Lock()
+	defer l.releaseMu.Unlock()
 
+	l.mu.Lock()
 	if l.released {
+		l.mu.Unlock()
 		return nil // 已经释放，幂等操作
 	}
+	l.mu.Unlock()
 
 	// 停止看门狗
 	l.stopWatchdog()
@@ -273,7 +304,14 @@ func (l *RedisLock) Unlock(ctx context.Context) error {
 		return fmt.Errorf("release lock: %w", err)
 	}
 
+	l.mu.Lock()
 	l.released = true
+	runCancel := l.runCancel
+	l.mu.Unlock()
+
+	if runCancel != nil {
+		runCancel()
+	}
 	return nil
 }
 
@@ -293,6 +331,29 @@ func (l *RedisLock) Value() string {
 	return l.value
 }
 
+// Context 返回持锁任务应使用的执行上下文。
+//
+// 该上下文在以下场景会被取消：
+//   - 调用方传入的父 ctx 被取消
+//   - 锁被正常释放
+//   - 看门狗检测到续期失败，租约丢失
+//
+// 如果在成功获取锁之前调用，则返回 Background 上下文作为安全兜底。
+func (l *RedisLock) Context() context.Context {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.runCtx != nil {
+		return l.runCtx
+	}
+	return context.Background()
+}
+
+// LeaseLost 返回当前实例是否已经丢失锁租约。
+func (l *RedisLock) LeaseLost() bool {
+	return l.leaseLost.Load()
+}
+
 // ============================================================================
 // 看门狗机制（核心！）
 // ============================================================================
@@ -300,10 +361,11 @@ func (l *RedisLock) Value() string {
 // startWatchdog 启动看门狗续期机制。
 //
 // 看门狗原理：
-//   启动一个后台 goroutine，每隔 TTL/3 的时间续期一次锁。
-//   这样可以保证：
-//   - 只要任务还在执行，锁就不会过期
-//   - 任务完成后停止看门狗，锁会在 TTL 后自动过期
+//
+//	启动一个后台 goroutine，每隔 TTL/3 的时间续期一次锁。
+//	这样可以保证：
+//	- 只要任务还在执行，锁就不会过期
+//	- 任务完成后停止看门狗，锁会在 TTL 后自动过期
 //
 // 为什么是 TTL/3：
 //   - 足够频繁：即使一次续期失败，还有 2 次机会
@@ -311,25 +373,39 @@ func (l *RedisLock) Value() string {
 //   - 例如 TTL=30s，每 10s 续期一次
 //
 // 续期使用 Lua 脚本保证原子性：
-//   只有持有相同 value 的实例才能续期锁。
-func (l *RedisLock) startWatchdog(ctx context.Context) {
-	// 续期间隔为 TTL 的 1/3
-	interval := l.cfg.TTL / 3
-	if interval < time.Second {
-		interval = time.Second // 最小间隔 1 秒
-	}
+//
+//	只有持有相同 value 的实例才能续期锁。
+func (l *RedisLock) startWatchdog(runCtx context.Context, runCancel context.CancelFunc) {
+	interval := watchdogInterval(l.cfg.TTL)
+	ticker := time.NewTicker(interval)
+	watchdogCtx, watchdogCancel := context.WithCancel(context.Background())
 
-	l.watchdog = time.NewTicker(interval)
-	l.stopCh = make(chan struct{})
+	l.watchdogCancel = watchdogCancel
+	l.watchdogWG.Add(1)
 
 	go func() {
+		defer l.watchdogWG.Done()
+		defer ticker.Stop()
+
 		for {
 			select {
-			case <-l.watchdog.C:
-				// 续期锁
-				l.extendLock(ctx)
-			case <-l.stopCh:
-				// 收到停止信号，退出看门狗
+			case <-ticker.C:
+				renewed, err := l.extendLock(runCtx)
+				if err != nil {
+					// 父上下文已取消或锁正在释放时，不应误报租约丢失。
+					if errors.Is(err, context.Canceled) && runCtx.Err() != nil {
+						return
+					}
+					l.handleLeaseLoss(runCancel)
+					return
+				}
+				if !renewed {
+					l.handleLeaseLoss(runCancel)
+					return
+				}
+			case <-watchdogCtx.Done():
+				return
+			case <-runCtx.Done():
 				return
 			}
 		}
@@ -339,13 +415,13 @@ func (l *RedisLock) startWatchdog(ctx context.Context) {
 // stopWatchdog 停止看门狗。
 // 在释放锁之前调用，确保看门狗不会在锁释放后继续续期。
 func (l *RedisLock) stopWatchdog() {
-	if l.watchdog != nil {
-		l.watchdog.Stop()
-		l.watchdog = nil
-	}
-	if l.stopCh != nil {
-		close(l.stopCh)
-		l.stopCh = nil
+	l.mu.Lock()
+	cancel := l.watchdogCancel
+	l.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
+		l.watchdogWG.Wait()
 	}
 }
 
@@ -360,8 +436,8 @@ func (l *RedisLock) stopWatchdog() {
 //	end
 //
 // 只有持有相同 value 的实例才能续期。
-// 续期失败不会 panic，看门狗会继续尝试下一次续期。
-func (l *RedisLock) extendLock(ctx context.Context) {
+// 续期失败不会 panic，但会被看门狗视为租约丢失并取消持锁任务。
+func (l *RedisLock) extendLock(ctx context.Context) (bool, error) {
 	script := goredis.NewScript(`
 		if redis.call("GET", KEYS[1]) == ARGV[1] then
 			return redis.call("PEXPIRE", KEYS[1], ARGV[2])
@@ -371,12 +447,43 @@ func (l *RedisLock) extendLock(ctx context.Context) {
 	`)
 
 	ttlMs := int64(l.cfg.TTL / time.Millisecond)
-	_, _ = script.Run(ctx, l.rdb, []string{l.key}, l.value, ttlMs).Int64()
+	result, err := script.Run(ctx, l.rdb, []string{l.key}, l.value, ttlMs).Int64()
+	if err != nil {
+		return false, fmt.Errorf("extend lock: %w", err)
+	}
+	return result == 1, nil
 }
 
 // ============================================================================
 // 辅助函数
 // ============================================================================
+
+// handleLeaseLoss 标记租约丢失并取消持锁任务上下文。
+//
+// 这里使用原子标志保证：
+//   - 续期失败只会触发一次租约丢失语义
+//   - 重复的失败信号不会重复取消或污染状态
+func (l *RedisLock) handleLeaseLoss(runCancel context.CancelFunc) {
+	if !l.leaseLost.CompareAndSwap(false, true) {
+		return
+	}
+	if runCancel != nil {
+		runCancel()
+	}
+}
+
+// watchdogInterval 计算看门狗续期间隔。
+//
+// 规则：
+//   - 使用 TTL/3 作为默认续期间隔
+//   - 间隔下限固定为 1 秒，避免极短 TTL 导致过于频繁的 Redis 操作
+func watchdogInterval(ttl time.Duration) time.Duration {
+	interval := ttl / 3
+	if interval < time.Second {
+		return time.Second
+	}
+	return interval
+}
 
 // generateRandomValue 生成随机的锁标识。
 //

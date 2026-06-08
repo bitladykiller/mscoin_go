@@ -70,6 +70,7 @@ type TasksConfig struct {
 //
 // 分布式锁用于防止多实例部署时定时任务重复执行。
 // 使用 Redis SETNX 实现，配合看门狗机制自动续期。
+// 一旦续期失败，持锁任务的执行上下文会被取消，避免任务在失去租约后继续运行。
 type LockConfig struct {
 	// Enabled 是否启用分布式锁。
 	// 单实例部署时可设为 false，多实例部署时必须设为 true。

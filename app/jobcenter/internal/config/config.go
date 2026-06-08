@@ -60,6 +60,30 @@ type TasksConfig struct {
 	// Klines K 线同步任务配置列表。
 	// 支持配置多个不同周期的 K 线同步任务。
 	Klines []KlineTaskConfig
+
+	// Lock 分布式锁配置。
+	// 用于多实例部署时防止定时任务重复执行。
+	Lock LockConfig
+}
+
+// LockConfig 定义分布式锁的配置。
+//
+// 分布式锁用于防止多实例部署时定时任务重复执行。
+// 使用 Redis SETNX 实现，配合看门狗机制自动续期。
+type LockConfig struct {
+	// Enabled 是否启用分布式锁。
+	// 单实例部署时可设为 false，多实例部署时必须设为 true。
+	Enabled bool
+
+	// TTL 锁的过期时间（秒），默认 60。
+	// 注意：TTL 是防死锁的安全兜底，看门狗会在 TTL/3 间隔续期。
+	TTL int
+
+	// MaxRetries 获取锁的最大重试次数，默认 3。
+	MaxRetries int
+
+	// RetryDelay 获取锁失败后的重试间隔（毫秒），默认 200。
+	RetryDelay int
 }
 
 // Config 描述首次迁移后的 jobcenter 运行时配置。

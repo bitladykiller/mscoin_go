@@ -1,10 +1,16 @@
 // Package task 提供 jobcenter 的定时任务调度服务。
 //
 // 该包实现了一个轻量级的定时任务框架，使用 Go 原生的 goroutine 和 time.Ticker，
-// 而非引入额外的调度框架（如 cron）。这种设计适合：
-//   - 长生命周期的间隔任务
-//   - 任务之间相互独立，无复杂依赖关系
-//   - 需要精细控制任务执行行为
+// 配合分布式锁 + 看门狗机制，支持多实例部署。
+//
+// 核心特性：
+//   - 每个任务在独立的 goroutine 中运行
+//   - 使用 time.Ticker 控制执行间隔
+//   - 支持 RunOnStart 配置，在服务启动时立即执行一次
+//   - 使用分布式锁防止多实例重复执行
+//   - 看门狗机制自动续期锁，防止任务未完成时锁过期
+//   - 任务执行失败仅记录日志，不影响其他任务
+//   - 服务停止时等待所有任务优雅退出
 package task
 
 import (
@@ -15,7 +21,9 @@ import (
 
 	"mscoin_go/app/jobcenter/internal/config"
 	"mscoin_go/app/jobcenter/internal/svc"
+	"mscoin_go/pkg/lock"
 
+	goredis "github.com/go-redis/redis/v8"
 	"github.com/zeromicro/go-zero/core/logx"
 	coreservice "github.com/zeromicro/go-zero/core/service"
 )
@@ -24,6 +32,15 @@ const (
 	// defaultIntervalSeconds 是任务执行间隔的默认值（60秒）。
 	// 当配置中的 IntervalSeconds <= 0 时使用此默认值。
 	defaultIntervalSeconds = 60
+
+	// defaultLockTTL 分布式锁的默认过期时间（60秒）。
+	defaultLockTTL = 60 * time.Second
+
+	// defaultLockMaxRetries 获取锁的默认最大重试次数。
+	defaultLockMaxRetries = 3
+
+	// defaultLockRetryDelay 获取锁的默认重试间隔（200毫秒）。
+	defaultLockRetryDelay = 200 * time.Millisecond
 )
 
 // jobRunner 定义任务执行函数的签名。
@@ -32,7 +49,7 @@ type jobRunner func(ctx context.Context) error
 
 // intervalJob 封装一个周期性执行的任务。
 type intervalJob struct {
-	// name 任务名称，用于日志记录和问题排查
+	// name 任务名称，用于日志记录、分布式锁键名和问题排查
 	name string
 
 	// schedule 任务调度配置，控制启用状态、启动行为和执行间隔
@@ -44,13 +61,15 @@ type intervalJob struct {
 
 // Service 管理 jobcenter 中所有基于 goroutine 的周期性任务。
 //
-// 该服务使用 Go 原生 goroutine 和 time.Ticker 实现，因为项目只需要
-// 长生命周期的间隔任务，不需要引入额外的调度框架（如 cron）。
+// 该服务使用 Go 原生 goroutine 和 time.Ticker 实现定时调度，
+// 配合分布式锁 + 看门狗机制支持多实例部署。
 //
 // 调度逻辑：
 //   - 每个任务在独立的 goroutine 中运行
 //   - 使用 time.Ticker 控制执行间隔
 //   - 支持 RunOnStart 配置，在服务启动时立即执行一次
+//   - 使用 Redis 分布式锁防止多实例重复执行
+//   - 看门狗机制自动续期锁，防止任务未完成时锁过期
 //   - 任务执行失败仅记录日志，不影响其他任务
 //   - 服务停止时等待所有任务优雅退出
 //
@@ -69,6 +88,12 @@ type Service struct {
 
 	// jobs 注册的任务列表
 	jobs []intervalJob
+
+	// lockConfig 分布式锁配置
+	lockConfig config.LockConfig
+
+	// redis 用于创建分布式锁的 Redis 客户端
+	redis goredis.UniversalClient
 }
 
 // NewService 创建定时任务服务实例。
@@ -84,9 +109,18 @@ type Service struct {
 func NewService(svcCtx *svc.ServiceContext) coreservice.Service {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// 获取 Redis 原生客户端（用于分布式锁）
+	// svcCtx.Cache 是 redisx.Client，内部持有 goredis.UniversalClient
+	var redisClient goredis.UniversalClient
+	if svcCtx.Cache != nil {
+		redisClient = svcCtx.Cache.Raw()
+	}
+
 	service := &Service{
-		ctx:    ctx,
-		cancel: cancel,
+		ctx:         ctx,
+		cancel:      cancel,
+		lockConfig:  svcCtx.Config.Tasks.Lock,
+		redis:       redisClient,
 	}
 
 	if svcCtx != nil {
@@ -166,6 +200,12 @@ func (s *Service) registerJobs(svcCtx *svc.ServiceContext) {
 //  4. 循环等待 Ticker 或停止信号
 //  5. 收到停止信号后退出 goroutine
 //
+// 分布式锁逻辑（仅当 lockConfig.Enabled 为 true 时生效）：
+//  1. 每次执行前尝试获取分布式锁
+//  2. 获取成功后启动看门狗自动续期
+//  3. 任务完成后释放锁（同时停止看门狗）
+//  4. 获取失败则跳过本次执行（其他实例正在执行）
+//
 // 参数：
 //   - job: 要执行的任务配置
 func (s *Service) runLoop(job intervalJob) {
@@ -178,7 +218,7 @@ func (s *Service) runLoop(job intervalJob) {
 	logx.Infof("starting jobcenter task %s with interval %s", job.name, interval)
 
 	if job.schedule.RunOnStart {
-		s.execute(job)
+		s.executeWithLock(job)
 	}
 
 	for {
@@ -187,8 +227,63 @@ func (s *Service) runLoop(job intervalJob) {
 			logx.Infof("jobcenter task %s stopped", job.name)
 			return
 		case <-ticker.C:
-			s.execute(job)
+			s.executeWithLock(job)
 		}
+	}
+}
+
+// executeWithLock 使用分布式锁执行任务。
+//
+// 如果未启用分布式锁（lockConfig.Enabled = false），直接执行任务。
+// 这适用于单实例部署场景。
+//
+// 如果启用了分布式锁：
+//  1. 创建带看门狗的分布式锁
+//  2. 尝试获取锁
+//  3. 获取成功后执行任务（看门狗会自动续期）
+//  4. 任务完成后释放锁
+//  5. 获取失败则跳过（其他实例正在执行）
+func (s *Service) executeWithLock(job intervalJob) {
+	// 未启用分布式锁，直接执行
+	if !s.lockConfig.Enabled || s.redis == nil {
+		s.execute(job)
+		return
+	}
+
+	// 构建锁的键名：jobcenter:task:{task_name}
+	lockKey := fmt.Sprintf("jobcenter:task:%s", job.name)
+
+	// 解析锁配置
+	ttl := time.Duration(defaultPositive(s.lockConfig.TTL, int(defaultLockTTL/time.Second))) * time.Second
+	maxRetries := defaultPositive(s.lockConfig.MaxRetries, defaultLockMaxRetries)
+	retryDelay := time.Duration(defaultPositive(s.lockConfig.RetryDelay, int(defaultLockRetryDelay/time.Millisecond))) * time.Millisecond
+
+	// 创建分布式锁（看门狗默认启用）
+	taskLock, err := lock.NewRedisLock(s.redis, lockKey,
+		lock.WithTTL(ttl),
+		lock.WithRetry(maxRetries, retryDelay),
+		lock.WithWatchdog(true), // 看门狗自动续期
+	)
+	if err != nil {
+		logx.Errorf("create lock for task %s failed: %v", job.name, err)
+		return
+	}
+	defer taskLock.Close()
+
+	// 尝试获取锁
+	if err := taskLock.Lock(s.ctx); err != nil {
+		// 获取锁失败，其他实例正在执行，跳过本次
+		logx.Infof("task %s skipped: another instance is running", job.name)
+		return
+	}
+
+	// 获取锁成功，执行任务
+	// 看门狗会自动续期锁，直到任务完成
+	s.execute(job)
+
+	// 任务完成，释放锁（同时停止看门狗）
+	if err := taskLock.Unlock(s.ctx); err != nil {
+		logx.Errorf("release lock for task %s failed: %v", job.name, err)
 	}
 }
 
